@@ -1,0 +1,111 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model LoanOfficer {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("OFFICER") // OFFICER, ADMIN
+  createdAt DateTime @default(now())
+  loans     Loan[]
+  susuContributions SusuContribution[]
+  susuWithdrawals   SusuWithdrawal[]
+}
+
+model Customer {
+  id              String   @id @default(uuid())
+  firstName       String
+  lastName        String
+  phone           String
+  email           String?
+  ghanaCardNumber String?
+  ghanaCardFront  String
+  ghanaCardBack   String
+  createdAt       DateTime @default(now())
+  loans           Loan[]
+  notifications   Notification[]
+  susuContributions SusuContribution[]
+  susuWithdrawals   SusuWithdrawal[]
+}
+
+model Loan {
+  id               String   @id @default(uuid())
+  customerId       String
+  customer         Customer @relation(fields: [customerId], references: [id])
+  officerId        String
+  officer          LoanOfficer @relation(fields: [officerId], references: [id])
+  amount           Float
+  interestRate     Float
+  interestModel    String   @default("FLAT") // FLAT, REDUCING
+  durationMonths   Int
+  monthlyPayment   Float
+  totalRepayable   Float
+  status           String   @default("ACTIVE") // ACTIVE, COMPLETED, DEFAULTED, CANCELLED
+  disbursedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  installments     Installment[]
+  repayments       Repayment[]
+}
+
+model Installment {
+  id            String   @id @default(uuid())
+  loanId        String
+  loan          Loan     @relation(fields: [loanId], references: [id])
+  dueDate       DateTime
+  amount        Float
+  penaltyAmount Float    @default(0)
+  paid          Boolean  @default(false)
+  paidAt        DateTime?
+}
+
+model Repayment {
+  id        String   @id @default(uuid())
+  loanId    String
+  loan      Loan     @relation(fields: [loanId], references: [id])
+  amount    Float
+  paidAt    DateTime @default(now())
+  note      String?
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  type       String   // WHATSAPP, SMS
+  message    String
+  sentAt     DateTime @default(now())
+  status     String   @default("SENT")
+}
+
+model SusuContribution {
+  id          String   @id @default(uuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+  officerId   String
+  officer     LoanOfficer @relation(fields: [officerId], references: [id])
+  amount      Float
+  collectedAt DateTime @default(now())
+  note        String?
+}
+
+model SusuWithdrawal {
+  id          String      @id @default(uuid())
+  customerId  String
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  officerId   String
+  officer     LoanOfficer @relation(fields: [officerId], references: [id])
+  amount      Float
+  withdrawnAt DateTime    @default(now())
+  status      String      @default("PENDING") // PENDING, APPROVED, REJECTED
+  note        String?
+}
