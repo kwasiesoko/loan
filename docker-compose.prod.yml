@@ -1,0 +1,52 @@
+services:
+
+  backend:
+    image: reg-aml.esoko.com/deveops-test.img/loan-backend:alpha
+    restart: unless-stopped
+    environment:
+      NODE_ENV:     production
+      DATABASE_URL: file:/app/data/loan.db
+      JWT_SECRET:   ${JWT_SECRET}
+      PORT:         3000
+    volumes:
+      - ./loan_data/db-data:/app/data
+      - ./loan_data/uploads:/app/uploads
+    expose:
+      - "3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.loan-api.rule=Host(`api.loan.elicitlabs.link`)"
+      - "traefik.http.routers.loan-api.entrypoints=websecure"
+      - "traefik.http.routers.loan-api.tls.certresolver=myresolver"
+      - "traefik.http.services.loan-api.loadbalancer.server.port=3000"
+      - "com.centurylinklabs.watchtower.enable=true"
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  web:
+    image: reg-aml.esoko.com/deveops-test.img/loan-web:alpha
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.loan-web.rule=Host(`loan.elicitlabs.link`)"
+      - "traefik.http.routers.loan-web.entrypoints=websecure"
+      - "traefik.http.routers.loan-web.tls.certresolver=myresolver"
+      - "traefik.http.services.loan-web.loadbalancer.server.port=80"
+      - "com.centurylinklabs.watchtower.enable=true"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
