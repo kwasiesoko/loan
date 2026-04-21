@@ -9,8 +9,8 @@ services:
       JWT_SECRET:   ${JWT_SECRET}
       PORT:         3000
     volumes:
-      - db-data:/app/data
-      - uploads:/app/uploads
+      - ./loan_data/db-data:/app/data
+      - ./loan_data/uploads:/app/uploads
     expose:
       - "3000"
     labels:
@@ -46,10 +46,6 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
     networks:
       - proxy
-
-volumes:
-  db-data:
-  uploads:
 
 networks:
   proxy:
