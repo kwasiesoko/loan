@@ -14,8 +14,11 @@ export class LoansController {
   }
 
   @Get()
-  async getAllLoans() {
-      return this.loansService.getAllLoans();
+  async getAllLoans(@Req() req: any) {
+      if (req.user.role === 'ADMIN') {
+          return this.loansService.getAllLoans();
+      }
+      return this.loansService.testGetLoansByOfficer(req.user.id);
   }
 
   @Get('my-loans')

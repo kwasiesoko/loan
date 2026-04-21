@@ -18,13 +18,19 @@ export class SusuController {
   }
 
   @Get('contributions')
-  async getContributions() {
-    return this.susuService.getContributions();
+  async getContributions(@Req() req: any) {
+    if (req.user.role === 'ADMIN') {
+        return this.susuService.getContributions();
+    }
+    return this.susuService.getContributionsByOfficer(req.user.id);
   }
 
   @Get('withdrawals')
-  async getWithdrawals() {
-    return this.susuService.getWithdrawals();
+  async getWithdrawals(@Req() req: any) {
+    if (req.user.role === 'ADMIN') {
+        return this.susuService.getWithdrawals();
+    }
+    return this.susuService.getWithdrawalsByOfficer(req.user.id);
   }
 
   @Get('balance/:customerId')

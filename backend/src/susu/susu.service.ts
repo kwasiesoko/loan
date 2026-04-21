@@ -60,8 +60,38 @@ export class SusuService {
     });
   }
 
+  async getWithdrawalsByOfficer(officerId: string) {
+    return this.prisma.susuWithdrawal.findMany({
+      where: { officerId },
+      include: {
+        customer: true,
+        officer: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { withdrawnAt: 'desc' },
+    });
+  }
+
   async getContributions() {
     return this.prisma.susuContribution.findMany({
+      include: {
+        customer: true,
+        officer: {
+            select: {
+                id: true,
+                name: true,
+                email: true
+            }
+        },
+      },
+      orderBy: {
+        collectedAt: 'desc',
+      },
+    });
+  }
+
+  async getContributionsByOfficer(officerId: string) {
+    return this.prisma.susuContribution.findMany({
+      where: { officerId },
       include: {
         customer: true,
         officer: {

@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards, UseInterceptors, UploadedFiles, Res, StreamableFile } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, UseInterceptors, UploadedFiles, Res, StreamableFile, Req } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { CustomersService } from './customers.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -34,6 +34,7 @@ export class CustomersController {
     )
   )
   async create(
+    @Req() req: any,
     @Body() body: any,
     @UploadedFiles() files: { ghanaCardFront?: Express.Multer.File[], ghanaCardBack?: Express.Multer.File[] }
   ) {
@@ -44,12 +45,15 @@ export class CustomersController {
     if (files?.ghanaCardBack?.length) {
       data.ghanaCardBack = files.ghanaCardBack[0].path;
     }
-    return this.customersService.create(data);
+    return this.customersService.create(req.user.id, data);
   }
 
   @Get()
-  async findAll() {
-    return this.customersService.findAll();
+  async findAll(@Req() req: any) {
+    if (req.user.role === 'ADMIN') {
+        return this.customersService.findAll();
+    }
+    return this.customersService.findAllByOfficer(req.user.id);
   }
 
   @Get(':id')

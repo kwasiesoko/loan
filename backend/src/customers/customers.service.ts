@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CustomersService {
   constructor(private prisma: PrismaService) {}
 
-  async create(data: any) {
+  async create(officerId: string, data: any) {
     return this.prisma.customer.create({
       data: {
         firstName: data.firstName,
@@ -15,12 +15,20 @@ export class CustomersService {
         ghanaCardNumber: data.ghanaCardNumber || null,
         ghanaCardFront: data.ghanaCardFront || '',
         ghanaCardBack: data.ghanaCardBack || '',
+        officerId,
       },
     });
   }
 
   async findAll() {
     return this.prisma.customer.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  async findAllByOfficer(officerId: string) {
+    return this.prisma.customer.findMany({
+      where: { officerId },
       orderBy: { createdAt: 'desc' }
     });
   }
