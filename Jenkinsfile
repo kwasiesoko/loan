@@ -11,8 +11,8 @@ pipeline {
         registry_URL        = "reg-aml.esoko.com"
 
         // Dev images
-        IMAGE_BACKEND       = "reg-aml.esoko.com/develop.esoko/loan-backend"
-        IMAGE_WEB           = "reg-aml.esoko.com/develop.esoko/loan-web"
+        IMAGE_BACKEND       = "reg-aml.esoko.com/deveops-test.img/loan-backend"
+        IMAGE_WEB           = "reg-aml.esoko.com/deveops-test.img/loan-web"
         TAG                 = "alpha"
 
         // Prod images
