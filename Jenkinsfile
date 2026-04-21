@@ -81,10 +81,18 @@ pipeline {
             when {
                 anyOf { branch 'develop'; branch 'loan'; branch 'Sprint*'; branch 'Hotfix*'; branch 'master'; branch 'main'; branch 'sprint*'; branch 'feature/*'; branch 'cicd-feature/*' }
             }
+            steps {
+                sh "echo '${REG_AML_CRED_PSW}' | docker login -u ${REG_AML_CRED_USR} --password-stdin ${registry_URL}"
+            }
+        }
+
+        stage("Build and Push - Dev (parallel)") {
+            when {
+                anyOf { branch 'develop'; branch 'loan'; branch 'Sprint*'; branch 'Hotfix*'; branch 'master'; branch 'main'; branch 'sprint*'; branch 'feature/*'; branch 'cicd-feature/*' }
+            }
             parallel {
                 stage("Backend") {
                     steps {
-                        sh "echo '${REG_AML_CRED_PSW}' | docker login -u ${REG_AML_CRED_USR} --password-stdin ${registry_URL}"
                         sh "docker build -f backend/Dockerfile -t ${env.IMAGE_BACKEND}:${env.TAG} ."
                         sh "docker push ${env.IMAGE_BACKEND}:${env.TAG}"
                     }
@@ -199,19 +207,19 @@ pipeline {
                         def status = (totalCritical > 0) ? '*CRITICAL VULNERABILITIES FOUND*' : (totalHigh > 0) ? 'High severity vulnerabilities found' : (totalMedium > 0) ? 'Medium severity vulnerabilities found' : 'No critical, high, or medium vulnerabilities'
                         def branchName = env.GIT_BRANCH ?: sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
 
-                        slackSend(
-                            color: color,
-                            message: """
-                            *Security Scan Completed for* `${env.SERVICE} - ${branchName}`
-                            ${status}
-
-                            *Backend:* CRITICAL: ${counts.backend.c} | HIGH: ${counts.backend.h} | MEDIUM: ${counts.backend.m}
-                            *Web:*     CRITICAL: ${counts.web.c} | HIGH: ${counts.web.h} | MEDIUM: ${counts.web.m}
-
-                            📊 [Backend Report](${env.BUILD_URL}Trivy_Image_Scan_-_Backend/) | [Web Report](${env.BUILD_URL}Trivy_Image_Scan_-_Web/)
-                            """.stripIndent(),
-                            channel: '#devops-notify'
-                        )
+                        // slackSend(
+                        //     color: color,
+                        //     message: """
+                        //     *Security Scan Completed for* `${env.SERVICE} - ${branchName}`
+                        //     ${status}
+                        //
+                        //     *Backend:* CRITICAL: ${counts.backend.c} | HIGH: ${counts.backend.h} | MEDIUM: ${counts.backend.m}
+                        //     *Web:*     CRITICAL: ${counts.web.c} | HIGH: ${counts.web.h} | MEDIUM: ${counts.web.m}
+                        //
+                        //     📊 [Backend Report](${env.BUILD_URL}Trivy_Image_Scan_-_Backend/) | [Web Report](${env.BUILD_URL}Trivy_Image_Scan_-_Web/)
+                        //     """.stripIndent(),
+                        //     channel: '#devops-notify'
+                        // )
                     }
                 }
             }
@@ -318,19 +326,19 @@ pipeline {
                         def color  = (totalCritical > 0) ? '#FF0000' : (totalHigh > 0) ? '#FFA500' : (totalMedium > 0) ? '#FFD700' : '#36a64f'
                         def status = (totalCritical > 0) ? '*CRITICAL VULNERABILITIES FOUND*' : (totalHigh > 0) ? 'High severity vulnerabilities found' : (totalMedium > 0) ? 'Medium severity vulnerabilities found' : 'No critical, high, or medium vulnerabilities'
 
-                        slackSend(
-                            color: color,
-                            message: """
-                            *Security Scan Completed for PROD Images* `${env.SERVICE}:${env.TAG_NAME}`
-                            ${status}
-
-                            *Backend:* CRITICAL: ${counts.backend.c} | HIGH: ${counts.backend.h} | MEDIUM: ${counts.backend.m}
-                            *Web:*     CRITICAL: ${counts.web.c} | HIGH: ${counts.web.h} | MEDIUM: ${counts.web.m}
-
-                            📊 [Backend Report](${env.BUILD_URL}Trivy_PROD_Image_Scan_-_Backend/) | [Web Report](${env.BUILD_URL}Trivy_PROD_Image_Scan_-_Web/)
-                            """.stripIndent(),
-                            channel: '#devops-notify'
-                        )
+                        // slackSend(
+                        //     color: color,
+                        //     message: """
+                        //     *Security Scan Completed for PROD Images* `${env.SERVICE}:${env.TAG_NAME}`
+                        //     ${status}
+                        //
+                        //     *Backend:* CRITICAL: ${counts.backend.c} | HIGH: ${counts.backend.h} | MEDIUM: ${counts.backend.m}
+                        //     *Web:*     CRITICAL: ${counts.web.c} | HIGH: ${counts.web.h} | MEDIUM: ${counts.web.m}
+                        //
+                        //     📊 [Backend Report](${env.BUILD_URL}Trivy_PROD_Image_Scan_-_Backend/) | [Web Report](${env.BUILD_URL}Trivy_PROD_Image_Scan_-_Web/)
+                        //     """.stripIndent(),
+                        //     channel: '#devops-notify'
+                        // )
                     }
                 }
             }
@@ -347,24 +355,24 @@ pipeline {
     }
 
     post {
-        success {
-            script {
-                slackSend(
-                    color: '#00FF00',
-                    message: "Build succeeded: ${currentBuild.fullDisplayName}",
-                    channel: '#devops-notify'
-                )
-            }
-        }
-        failure {
-            script {
-                slackSend(
-                    color: '#FF0000',
-                    message: "Build FAILED: ${currentBuild.fullDisplayName}\nLogs: ${env.BUILD_URL}",
-                    channel: '#devops-notify'
-                )
-            }
-        }
+        // success {
+        //     script {
+        //         slackSend(
+        //             color: '#00FF00',
+        //             message: "Build succeeded: ${currentBuild.fullDisplayName}",
+        //             channel: '#devops-notify'
+        //         )
+        //     }
+        // }
+        // failure {
+        //     script {
+        //         slackSend(
+        //             color: '#FF0000',
+        //             message: "Build FAILED: ${currentBuild.fullDisplayName}\nLogs: ${env.BUILD_URL}",
+        //             channel: '#devops-notify'
+        //         )
+        //     }
+        // }
         always {
             cleanWs(
                 cleanWhenNotBuilt: false,
