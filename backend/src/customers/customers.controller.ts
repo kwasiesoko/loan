@@ -17,7 +17,6 @@ const storage = diskStorage({
 });
 
 
-
 @UseGuards(JwtAuthGuard)
 @Controller('customers')
 export class CustomersController {
