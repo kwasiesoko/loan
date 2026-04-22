@@ -1,13 +1,8 @@
 {
   "scripts": {
-<<<<<<< HEAD
-    "start": "nest start",
-    "start:dev": "nest start --watch"
-=======
     "start": "DATABASE_URL=\"file:/home/kwasi/Documents/loan/backend/prisma/dev.db\" nest start",
     "start:dev": "DATABASE_URL=\"file:/home/kwasi/Documents/loan/backend/prisma/dev.db\" nest start --watch",
     "build": "nest build"
->>>>>>> be296d8616041c47ca65a8ba1e017665c7f1e6f3
   },
   "dependencies": {
     "@nestjs/common": "^11.1.19",
