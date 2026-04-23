@@ -70,6 +70,7 @@ export default function Dashboard() {
                    (metrics?.parStats?.par90Plus || 0);
 
   const collectionRate = metrics?.collectionEfficiency?.toFixed(1) || 0;
+  const customerStats = metrics?.customerStats || {};
 
   // Max value for chart scaling
   const maxTrendVal = metrics?.trends ? Math.max(...metrics.trends.map(t => Math.max(t.loans, t.susu)), 1000) : 1000;
@@ -93,6 +94,22 @@ export default function Dashboard() {
         <StatCard icon={PiggyBank} label="Active Portfolio" value={fmtCurrency(metrics?.outstandingBalance)} color="#d97706" bg="#fef3c7" />
         <StatCard icon={Wallet} label="Total Susu Savings" value={fmtCurrency(metrics?.totalSusu)} color="#0d9488" bg="#f0fdfa" />
         <StatCard icon={ShieldCheck} label="Collection Efficiency" value={`${collectionRate}%`} color="#059669" bg="#d1fae5" />
+      </div>
+
+      <div style={{ marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div>
+            <h2 style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Customer Snapshot</h2>
+            <p style={{ fontSize: '0.8125rem', color: '#64748b' }}>A quick view of registration and portfolio coverage</p>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
+          <StatCard icon={Users} label="Total Customers" value={customerStats.totalCustomers || 0} color="#0f172a" bg="#e2e8f0" />
+          <StatCard icon={TrendingUp} label="New This Month" value={customerStats.newCustomersThisMonth || 0} color="#059669" bg="#dcfce7" />
+          <StatCard icon={CreditCard} label="Customers With Loans" value={customerStats.customersWithLoans || 0} color="#7c3aed" bg="#f3e8ff" />
+          <StatCard icon={CheckCircle} label="Customers With Ghana Card" value={customerStats.customersWithGhanaCard || 0} color="#d97706" bg="#fef3c7" />
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>

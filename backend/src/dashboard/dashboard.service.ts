@@ -22,6 +22,7 @@ export class DashboardService {
     const parStats = await this.calculatePARStats();
     const collectionEfficiency = await this.calculateCollectionEfficiency();
     const trends = await this.getMonthlyTrends();
+    const customerStats = await this.getCustomerStats();
 
     const susuAgg = await this.prisma.susuContribution.aggregate({
       _sum: { amount: true }
@@ -43,6 +44,7 @@ export class DashboardService {
       totalExpectedReturn: totalAmountAgg._sum.totalRepayable || 0,
       totalCollected: repaymentsAgg._sum.amount || 0,
       outstandingBalance: (totalAmountAgg._sum.totalRepayable || 0) - (repaymentsAgg._sum.amount || 0),
+      customerStats,
       parStats,
       collectionEfficiency,
       totalSusu: susuAgg._sum.amount || 0,
@@ -88,6 +90,7 @@ export class DashboardService {
     const parStats = await this.calculatePARStats(officerId);
     const trends = await this.getMonthlyTrends(officerId);
     const collectionEfficiency = await this.calculateCollectionEfficiency(officerId);
+    const customerStats = await this.getCustomerStats(officerId);
 
     return {
         totalLoans,
@@ -98,11 +101,51 @@ export class DashboardService {
         totalExpectedReturn: totalAmountAgg._sum.totalRepayable || 0,
         totalCollected: repaymentsAgg._sum.amount || 0,
         outstandingBalance: (totalAmountAgg._sum.totalRepayable || 0) - (repaymentsAgg._sum.amount || 0),
+        customerStats,
         totalSusu: susuAgg._sum.amount || 0,
         todaySusu: todaySusuAgg._sum.amount || 0,
         parStats,
         trends,
         collectionEfficiency,
+    };
+  }
+
+  private async getCustomerStats(officerId?: string) {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const baseWhere: any = {};
+    if (officerId) {
+      baseWhere.officerId = officerId;
+    }
+
+    const totalCustomers = await this.prisma.customer.count({ where: baseWhere });
+    const newCustomersThisMonth = await this.prisma.customer.count({
+      where: {
+        ...baseWhere,
+        createdAt: { gte: monthStart },
+      },
+    });
+    const customersWithLoans = await this.prisma.customer.count({
+      where: {
+        ...baseWhere,
+        loans: { some: {} },
+      },
+    });
+    const customersWithGhanaCard = await this.prisma.customer.count({
+      where: {
+        ...baseWhere,
+        ghanaCardNumber: { not: null },
+      },
+    });
+
+    return {
+      totalCustomers,
+      newCustomersThisMonth,
+      customersWithLoans,
+      customersWithoutLoans: totalCustomers - customersWithLoans,
+      customersWithGhanaCard,
+      customersWithoutGhanaCard: totalCustomers - customersWithGhanaCard,
     };
   }
 
