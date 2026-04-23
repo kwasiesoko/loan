@@ -122,7 +122,18 @@ body {
   pointer-events: auto; 
 }
 
-.page-content { padding: 1.5rem; max-width: 1400px; margin: 0 auto; width: 100%; }
+.page-content { 
+  padding: 1.5rem; 
+  max-width: 1400px; 
+  margin: 0 auto; 
+  width: 100%; 
+}
+
+@media (max-width: 768px) {
+  .page-content {
+    padding-bottom: 5rem; /* Account for bottom-nav height (64px) + extra space */
+  }
+}
 
 /* Page Header */
 .page-header {

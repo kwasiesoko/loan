@@ -10,12 +10,21 @@ export default function NewLoan() {
   const [customers, setCustomers] = useState([]);
   const [form, setForm] = useState({ customerId: '', amount: '', interestRate: '', durationMonths: '', interestModel: 'FLAT' });
   const [loading, setLoading] = useState(false);
-  const [customerSearch, setCustomerSearch] = useState('');
   const [preview, setPreview] = useState(null);
+  const [search, setSearch] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
 
   const filteredCustomers = customers.filter(c => 
-    `${c.firstName} ${c.lastName} ${c.phone}`.toLowerCase().includes(customerSearch.toLowerCase())
+    `${c.firstName} ${c.lastName} ${c.phone}`.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleSelectCustomer = (c) => {
+    setForm(prev => ({ ...prev, customerId: c.id }));
+    setSearch(`${c.firstName} ${c.lastName} (${c.phone})`);
+    setShowDropdown(false);
+  };
+
+
 
   useEffect(() => {
     customersApi.getAll()
@@ -109,26 +118,59 @@ export default function NewLoan() {
 
           <div className="form-group" style={{ marginBottom: '1.25rem' }}>
             <label className="form-label" htmlFor="customerId">Target Customer *</label>
-            <input 
-              type="text" 
-              placeholder="Type to search customers by name or phone..."
-              className="form-input"
-              value={customerSearch}
-              onChange={e => setCustomerSearch(e.target.value)}
-              style={{ marginBottom: '0.5rem' }}
-            />
+
             <div style={{ position: 'relative' }}>
-              <select 
-                id="customerId" name="customerId" required 
-                value={form.customerId} onChange={handleChange}
-                className="form-input" style={{ appearance: 'none', paddingRight: '2.5rem' }}
-              >
-                <option value="">-- Select a registered customer --</option>
-                {filteredCustomers.map(c => (
-                  <option key={c.id} value={c.id}>{c.firstName} {c.lastName} ({c.phone})</option>
-                ))}
-              </select>
-              <ChevronDown size={18} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+              <input 
+                type="text" 
+                placeholder="Search by name or phone..." 
+                className="form-input"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setShowDropdown(true);
+                  if (!e.target.value) setForm(prev => ({ ...prev, customerId: '' }));
+                }}
+                onFocus={() => setShowDropdown(true)}
+                onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                style={{ paddingRight: '2.5rem' }}
+              />
+              <ChevronDown 
+                size={18} 
+                style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', cursor: 'pointer' }} 
+                onClick={() => setShowDropdown(!showDropdown)}
+              />
+
+              {showDropdown && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                  background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)',
+                  marginTop: '0.5rem', boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                  maxHeight: '250px', overflowY: 'auto'
+                }}>
+                  {filteredCustomers.length > 0 ? (
+                    filteredCustomers.map(c => (
+                      <div 
+                        key={c.id}
+                        onClick={() => handleSelectCustomer(c)}
+                        style={{
+                          padding: '0.75rem 1rem', cursor: 'pointer', borderBottom: '1px solid var(--border-muted)',
+                          background: form.customerId === c.id ? 'var(--primary-light)' : 'transparent',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.target.style.background = 'var(--border-muted)'}
+                        onMouseLeave={(e) => e.target.style.background = form.customerId === c.id ? 'var(--primary-light)' : 'transparent'}
+                      >
+                        <p style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-main)' }}>{c.firstName} {c.lastName}</p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.phone} • {c.ghanaCardNumber}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                      No customers found
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

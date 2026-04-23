@@ -4,12 +4,23 @@ import { CustomersService } from './customers.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
-import { createReadStream } from 'fs';
+import { existsSync, mkdirSync, createReadStream } from 'fs';
 import type { Response } from 'express';
 
 // Configure multer storage
+// Helper to ensure upload dir exists
+const ensureUploadDir = () => {
+  const uploadDir = './uploads/kyc';
+  if (!existsSync(uploadDir)) {
+    mkdirSync(uploadDir, { recursive: true });
+  }
+  return uploadDir;
+};
+
 const storage = diskStorage({
-  destination: './uploads/kyc',
+  destination: (req, file, cb) => {
+    cb(null, ensureUploadDir());
+  },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     cb(null, `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`);
@@ -37,14 +48,19 @@ export class CustomersController {
     @Body() body: any,
     @UploadedFiles() files: { ghanaCardFront?: Express.Multer.File[], ghanaCardBack?: Express.Multer.File[] }
   ) {
-    const data = { ...body };
-    if (files?.ghanaCardFront?.length) {
-      data.ghanaCardFront = files.ghanaCardFront[0].path;
+    try {
+      const data = { ...body };
+      if (files?.ghanaCardFront?.length) {
+        data.ghanaCardFront = files.ghanaCardFront[0].path;
+      }
+      if (files?.ghanaCardBack?.length) {
+        data.ghanaCardBack = files.ghanaCardBack[0].path;
+      }
+      return await this.customersService.create(req.user.id, data);
+    } catch (error) {
+      console.error('Customer registration error:', error);
+      throw error;
     }
-    if (files?.ghanaCardBack?.length) {
-      data.ghanaCardBack = files.ghanaCardBack[0].path;
-    }
-    return this.customersService.create(req.user.id, data);
   }
 
   @Get()
