@@ -32,6 +32,7 @@ model Customer {
   ghanaCardNumber String?
   ghanaCardFront  String
   ghanaCardBack   String
+  photo           String?
   createdAt       DateTime @default(now())
   officerId       String?
   officer         LoanOfficer? @relation(fields: [officerId], references: [id])

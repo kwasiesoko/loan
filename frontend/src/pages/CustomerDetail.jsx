@@ -6,6 +6,23 @@ import { ArrowLeft, Phone, Mail, IdCard, CreditCard, Plus } from 'lucide-react';
 const fmt = (v) => `GHS ${(v || 0).toLocaleString('en-GH', { minimumFractionDigits: 2 })}`;
 const statusColors = { ACTIVE: 'badge-active', COMPLETED: 'badge-completed', DEFAULTED: 'badge-defaulted', CANCELLED: 'badge-cancelled' };
 
+function KYCImageInProfile({ path }) {
+  const [url, setUrl] = useState(null);
+
+  useEffect(() => {
+    if (!path) return;
+    const filename = path.split('/').pop();
+    customersApi.getKycBlob(filename)
+      .then(res => setUrl(URL.createObjectURL(res.data)))
+      .catch(console.error);
+    
+    return () => url && URL.revokeObjectURL(url);
+  }, [path]);
+
+  if (!url) return null;
+  return <img src={url} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
+}
+
 function KYCImage({ path, label }) {
   const [url, setUrl] = useState(null);
   const [error, setError] = useState(false);
@@ -74,13 +91,20 @@ export default function CustomerDetail() {
       {/* Profile card */}
       <div className="card" style={{ marginBottom: '1rem', background: 'linear-gradient(135deg, #0f172a, #1e293b)', color: 'white' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{
-            width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
-            background: 'linear-gradient(135deg, #1e40af, #3b82f6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'white', fontWeight: 800, fontSize: '1.5rem'
-          }}>
-            {customer.firstName.charAt(0).toUpperCase()}
+          <div 
+            style={{
+              width: 72, height: 72, borderRadius: '50%', flexShrink: 0,
+              background: 'linear-gradient(135deg, #1e40af, #3b82f6)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white', fontWeight: 800, fontSize: '1.5rem',
+              overflow: 'hidden', border: '3px solid rgba(255,255,255,0.1)'
+            }}
+          >
+            {customer.photo ? (
+               <KYCImageInProfile path={customer.photo} />
+            ) : (
+               customer.firstName.charAt(0).toUpperCase()
+            )}
           </div>
           <div>
             <h2 style={{ color: 'white', fontSize: '1.125rem', fontWeight: 800 }}>{customer.firstName} {customer.lastName}</h2>

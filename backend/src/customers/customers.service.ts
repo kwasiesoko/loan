@@ -15,6 +15,7 @@ export class CustomersService {
         ghanaCardNumber: data.ghanaCardNumber || null,
         ghanaCardFront: data.ghanaCardFront || '',
         ghanaCardBack: data.ghanaCardBack || '',
+        photo: data.photo || null,
         officerId,
       },
     });

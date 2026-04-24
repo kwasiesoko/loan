@@ -118,6 +118,7 @@ export default function Loans() {
                   <th>Monthly</th>
                   <th>Total Repayable</th>
                   <th>Duration</th>
+                  <th>Progress</th>
                   <th>Status</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -145,6 +146,22 @@ export default function Loans() {
                     <td style={{ color: '#059669', fontWeight: 600 }}>{fmtCurrency(l.monthlyPayment)}</td>
                     <td style={{ color: '#d97706', fontWeight: 600 }}>{fmtCurrency(l.totalRepayable)}</td>
                     <td style={{ color: '#64748b', fontSize: '0.875rem' }}>{l.durationMonths} months</td>
+                    <td>
+                        <div style={{ minWidth: '100px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.625rem', fontWeight: 800, marginBottom: '0.25rem', color: '#64748b' }}>
+                                <span>{l.installments?.filter(i => i.paid || i.amount < 0.1).length || 0} / {l.durationMonths} PAID</span>
+                                <span>{Math.round(((l.installments?.filter(i => i.paid || i.amount < 0.1).length || 0) / l.durationMonths) * 100)}%</span>
+                            </div>
+                            <div style={{ height: 6, background: '#f1f5f9', borderRadius: 3, overflow: 'hidden' }}>
+                                <div style={{ 
+                                    height: '100%', 
+                                    background: l.status === 'COMPLETED' ? '#059669' : '#3b82f6',
+                                    width: `${((l.installments?.filter(i => i.paid || i.amount < 0.1).length || 0) / l.durationMonths) * 100}%`,
+                                    transition: 'width 0.4s ease'
+                                }} />
+                            </div>
+                        </div>
+                    </td>
                     <td><span className={`badge ${statusColors[l.status] || 'badge-cancelled'}`}>{l.status}</span></td>
                     <td style={{ textAlign: 'right' }}>
                       <Link to={`/loans/${l.id}`} className="btn btn-outline btn-sm" onClick={e => e.stopPropagation()}>
@@ -204,6 +221,20 @@ export default function Loans() {
                     <div>
                       <p style={{ fontSize: '0.625rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.125rem' }}>Total</p>
                       <p style={{ fontSize: '0.875rem', fontWeight: 700, color: '#d97706' }}>{fmtCurrency(l.totalRepayable)}</p>
+                    </div>
+                  </div>
+                  
+                  <div style={{ marginTop: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.375rem' }}>
+                        <span style={{ color: '#64748b' }}>Repayment Progress</span>
+                        <span style={{ color: '#0f172a' }}>{l.installments?.filter(i => i.paid || i.amount < 0.1).length || 0} of {l.durationMonths} installments</span>
+                    </div>
+                    <div style={{ height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{ 
+                            height: '100%', 
+                            background: l.status === 'COMPLETED' ? '#059669' : '#3b82f6',
+                            width: `${((l.installments?.filter(i => i.paid || i.amount < 0.1).length || 0) / l.durationMonths) * 100}%`
+                        }} />
                     </div>
                   </div>
                 </div>

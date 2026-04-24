@@ -27,11 +27,19 @@ export class DashboardService {
     const susuAgg = await this.prisma.susuContribution.aggregate({
       _sum: { amount: true }
     });
+    const susuWithAgg = await this.prisma.susuWithdrawal.aggregate({
+      where: { status: 'APPROVED' },
+      _sum: { amount: true }
+    });
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todaySusuAgg = await this.prisma.susuContribution.aggregate({
       where: { collectedAt: { gte: todayStart } },
+      _sum: { amount: true }
+    });
+    const todaySusuWithAgg = await this.prisma.susuWithdrawal.aggregate({
+      where: { status: 'APPROVED', withdrawnAt: { gte: todayStart } },
       _sum: { amount: true }
     });
 
@@ -47,8 +55,12 @@ export class DashboardService {
       customerStats,
       parStats,
       collectionEfficiency,
-      totalSusu: susuAgg._sum.amount || 0,
-      todaySusu: todaySusuAgg._sum.amount || 0,
+      totalSusu: (susuAgg._sum.amount || 0) - (susuWithAgg._sum.amount || 0),
+      totalSusuDeposits: susuAgg._sum.amount || 0,
+      totalSusuWithdrawals: susuWithAgg._sum.amount || 0,
+      todaySusu: (todaySusuAgg._sum.amount || 0) - (todaySusuWithAgg._sum.amount || 0),
+      todaySusuDeposits: todaySusuAgg._sum.amount || 0,
+      todaySusuWithdrawals: todaySusuWithAgg._sum.amount || 0,
       trends,
     };
   }
@@ -79,11 +91,19 @@ export class DashboardService {
         where: { officerId },
         _sum: { amount: true }
     });
+    const susuWithAgg = await this.prisma.susuWithdrawal.aggregate({
+        where: { officerId, status: 'APPROVED' },
+        _sum: { amount: true }
+    });
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todaySusuAgg = await this.prisma.susuContribution.aggregate({
         where: { officerId, collectedAt: { gte: todayStart } },
+        _sum: { amount: true }
+    });
+    const todaySusuWithAgg = await this.prisma.susuWithdrawal.aggregate({
+        where: { officerId, status: 'APPROVED', withdrawnAt: { gte: todayStart } },
         _sum: { amount: true }
     });
 
@@ -102,8 +122,12 @@ export class DashboardService {
         totalCollected: repaymentsAgg._sum.amount || 0,
         outstandingBalance: (totalAmountAgg._sum.totalRepayable || 0) - (repaymentsAgg._sum.amount || 0),
         customerStats,
-        totalSusu: susuAgg._sum.amount || 0,
-        todaySusu: todaySusuAgg._sum.amount || 0,
+        totalSusu: (susuAgg._sum.amount || 0) - (susuWithAgg._sum.amount || 0),
+        totalSusuDeposits: susuAgg._sum.amount || 0,
+        totalSusuWithdrawals: susuWithAgg._sum.amount || 0,
+        todaySusu: (todaySusuAgg._sum.amount || 0) - (todaySusuWithAgg._sum.amount || 0),
+        todaySusuDeposits: todaySusuAgg._sum.amount || 0,
+        todaySusuWithdrawals: todaySusuWithAgg._sum.amount || 0,
         parStats,
         trends,
         collectionEfficiency,
@@ -246,10 +270,18 @@ export class DashboardService {
             _sum: { amount: true }
         });
 
+        const susuWithWhere: any = { status: 'APPROVED', withdrawnAt: { gte: start, lte: end } };
+        if (officerId) susuWithWhere.officerId = officerId;
+        
+        const susuWith = await this.prisma.susuWithdrawal.aggregate({
+            where: susuWithWhere,
+            _sum: { amount: true }
+        });
+
         months.push({
             month: monthLabel,
             loans: loans._sum.amount || 0,
-            susu: susu._sum.amount || 0
+            susu: (susu._sum.amount || 0) - (susuWith._sum.amount || 0)
         });
     }
     return months;

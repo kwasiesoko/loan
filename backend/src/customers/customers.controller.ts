@@ -39,6 +39,7 @@ export class CustomersController {
       [
         { name: 'ghanaCardFront', maxCount: 1 },
         { name: 'ghanaCardBack', maxCount: 1 },
+        { name: 'photo', maxCount: 1 },
       ],
       { storage }
     )
@@ -46,7 +47,11 @@ export class CustomersController {
   async create(
     @Req() req: any,
     @Body() body: any,
-    @UploadedFiles() files: { ghanaCardFront?: Express.Multer.File[], ghanaCardBack?: Express.Multer.File[] }
+    @UploadedFiles() files: { 
+      ghanaCardFront?: Express.Multer.File[], 
+      ghanaCardBack?: Express.Multer.File[],
+      photo?: Express.Multer.File[]
+    }
   ) {
     try {
       const data = { ...body };
@@ -55,6 +60,9 @@ export class CustomersController {
       }
       if (files?.ghanaCardBack?.length) {
         data.ghanaCardBack = files.ghanaCardBack[0].path;
+      }
+      if (files?.photo?.length) {
+        data.photo = files.photo[0].path;
       }
       return await this.customersService.create(req.user.id, data);
     } catch (error) {

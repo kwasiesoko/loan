@@ -96,13 +96,13 @@ export class LoansService {
   async testGetLoansByOfficer(officerId: string) {
       return this.prisma.loan.findMany({
           where: { officerId },
-          include: { customer: true, installments: true }
+          include: { customer: true, installments: true, repayments: true }
       });
   }
 
   async getAllLoans() {
       return this.prisma.loan.findMany({
-          include: { customer: true, officer: true, repayments: true }
+          include: { customer: true, officer: true, repayments: true, installments: true }
       });
   }
 
@@ -132,20 +132,26 @@ export class LoansService {
 
       // Update Installments starting from the earliest unpaid
       let remainingAmount = amount;
+      const EPSILON = 0.01; // 1 pesewa tolerance
+
       for (const inst of loan.installments) {
           if (remainingAmount <= 0) break;
 
-          if (remainingAmount >= inst.amount) {
+          if (remainingAmount >= (inst.amount - EPSILON)) {
               await this.prisma.installment.update({
                   where: { id: inst.id },
-                  data: { paid: true, paidAt: new Date() }
+                  data: { 
+                    paid: true, 
+                    paidAt: new Date(),
+                    amount: 0 // Fully paid
+                  }
               });
               remainingAmount -= inst.amount;
           } else {
               // Partial payments on an installment
               await this.prisma.installment.update({
                   where: { id: inst.id },
-                  data: { amount: inst.amount - remainingAmount } // Simply reduce amount due
+                  data: { amount: Math.max(0, inst.amount - remainingAmount) }
               });
               remainingAmount = 0;
           }

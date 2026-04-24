@@ -5,10 +5,13 @@ import { Wallet, Search, PlusCircle, History, User } from 'lucide-react';
 
 export default function Susu() {
   const [contributions, setContributions] = useState([]);
+  const [withdrawals, setWithdrawals] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [formType, setFormType] = useState('DEPOSIT'); // DEPOSIT or WITHDRAWAL
+  const [customerBalance, setCustomerBalance] = useState(null);
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   
@@ -24,11 +27,13 @@ export default function Susu() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [contRes, custRes] = await Promise.all([
+      const [contRes, withRes, custRes] = await Promise.all([
         susuApi.getContributions(),
+        susuApi.getWithdrawals(),
         customersApi.getAll()
       ]);
       setContributions(contRes.data);
+      setWithdrawals(withRes.data);
       setCustomers(custRes.data);
     } catch (err) {
       console.error('Failed to fetch Susu data', err);
@@ -51,29 +56,45 @@ export default function Susu() {
     try {
       setSubmitting(true);
       setError('');
-      await susuApi.createDeposit({
+      
+      const apiCall = formType === 'DEPOSIT' ? susuApi.createDeposit : susuApi.createWithdrawal;
+      
+      await apiCall({
         ...formData,
         amount: parseFloat(formData.amount)
       });
+      
       setFormData({ customerId: '', amount: '', note: '' });
       setCustomerSearch('');
       setShowForm(false);
       fetchData(); // Refresh list
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to record deposit');
+      setError(err.response?.data?.message || `Failed to record ${formType.toLowerCase()}`);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const filtered = contributions.filter(c =>
-    `${c.customer?.firstName} ${c.customer?.lastName}`.toLowerCase().includes(search.toLowerCase())
+  const allTransactions = [
+    ...contributions.map(c => ({ ...c, type: 'DEPOSIT', date: c.collectedAt })),
+    ...withdrawals.map(w => ({ ...w, type: 'WITHDRAWAL', date: w.withdrawnAt }))
+  ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const filtered = allTransactions.filter(t =>
+    `${t.customer?.firstName} ${t.customer?.lastName}`.toLowerCase().includes(search.toLowerCase())
   );
 
-  const totalSusu = contributions.reduce((s, c) => s + c.amount, 0);
-  const todaySusu = contributions
+  const totalDeposited = contributions.reduce((s, c) => s + c.amount, 0);
+  const totalWithdrawn = withdrawals.reduce((s, w) => s + w.amount, 0);
+  const netBalance = totalDeposited - totalWithdrawn;
+  
+  const depositsToday = contributions
     .filter(c => new Date(c.collectedAt).toDateString() === new Date().toDateString())
     .reduce((s, c) => s + c.amount, 0);
+    
+  const withdrawalsToday = withdrawals
+    .filter(w => new Date(w.withdrawnAt).toDateString() === new Date().toDateString())
+    .reduce((s, w) => s + w.amount, 0);
 
   return (
     <div className="animate-fade-in">
@@ -82,42 +103,59 @@ export default function Susu() {
           <h1 className="page-title">Susu Savings</h1>
           <p className="page subtitle">Manage customer deposits and savings</p>
         </div>
-        <button 
-          onClick={() => {
-            const nextState = !showForm;
-            setShowForm(nextState);
-            if (nextState) {
-                setFormData({ customerId: '', amount: '', note: '' });
-                setCustomerSearch('');
-                setError('');
-            }
-          }} 
-          className="btn btn-primary"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-        >
-          <PlusCircle size={18} />
-          {showForm ? 'Cancel' : 'Record Deposit'}
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button 
+            onClick={() => {
+              setFormType('DEPOSIT');
+              setFormData({ customerId: '', amount: '', note: '' });
+              setCustomerSearch('');
+              setError('');
+              setShowForm(true);
+            }} 
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <PlusCircle size={18} /> Record Deposit
+          </button>
+          <button 
+            onClick={() => {
+              setFormType('WITHDRAWAL');
+              setFormData({ customerId: '', amount: '', note: '' });
+              setCustomerSearch('');
+              setCustomerBalance(null);
+              setError('');
+              setShowForm(true);
+            }} 
+            className="btn btn-gold"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <Wallet size={18} /> Record Withdrawal
+          </button>
+        </div>
       </div>
 
       {/* Summary Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         <div className="stat-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Total Savings Portfolio</span>
+            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Net Savings Balance</span>
             <Wallet size={18} color="#0d9488" />
           </div>
-          <p style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0d9488' }}>{fmtCurrency(totalSusu)}</p>
-          <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>Lifetime Susu deposits</p>
+          <p style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0d9488' }}>{fmtCurrency(netBalance)}</p>
+          <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>Current liquidity in Susu fund</p>
         </div>
         
         <div className="stat-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Collected Today</span>
+            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Today's Activity</span>
             <History size={18} color="#1e40af" />
           </div>
-          <p style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e40af' }}>{fmtCurrency(todaySusu)}</p>
-          <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>Deposits received since morning</p>
+          <p style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e40af' }}>
+            {fmtCurrency(depositsToday - withdrawalsToday)}
+          </p>
+          <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+            In: {fmtCurrency(depositsToday)} | Out: {fmtCurrency(withdrawalsToday)}
+          </p>
         </div>
 
         <div className="stat-card">
@@ -128,7 +166,7 @@ export default function Susu() {
           <p style={{ fontSize: '1.75rem', fontWeight: 800, color: '#7c3aed' }}>
             {new Set(contributions.map(c => c.customerId)).size}
           </p>
-          <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>Unique customers with deposits</p>
+          <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>Unique customers registered</p>
         </div>
       </div>
 
@@ -156,8 +194,12 @@ export default function Susu() {
               alignItems: 'center' 
             }}>
               <div>
-                <h3 style={{ fontWeight: 800, fontSize: '1.125rem', color: '#0f172a' }}>Record Susu Deposit</h3>
-                <p style={{ fontSize: '0.8125rem', color: '#64748b', marginTop: '0.125rem' }}>Enter the details of the contribution collected.</p>
+                <h3 style={{ fontWeight: 800, fontSize: '1.125rem', color: '#0f172a' }}>
+                  {formType === 'DEPOSIT' ? 'Record Susu Deposit' : 'Record Susu Withdrawal'}
+                </h3>
+                <p style={{ fontSize: '0.8125rem', color: '#64748b', marginTop: '0.125rem' }}>
+                  {formType === 'DEPOSIT' ? 'Enter the details of the contribution collected.' : 'Deduct funds from the customer\'s savings balance.'}
+                </p>
               </div>
               <button 
                 onClick={() => setShowForm(false)}
@@ -225,6 +267,11 @@ export default function Susu() {
                                 setFormData({...formData, customerId: c.id});
                                 setCustomerSearch(`${c.firstName} ${c.lastName}`);
                                 setShowCustomerDropdown(false);
+                                
+                                // Fetch balance for withdrawals
+                                if (formType === 'WITHDRAWAL') {
+                                    susuApi.getBalance(c.id).then(r => setCustomerBalance(r.data.balance));
+                                }
                               }}
                               onMouseEnter={(e) => e.target.style.background = '#f8fafc'}
                               onMouseLeave={(e) => e.target.style.background = formData.customerId === c.id ? '#f0fdfa' : 'transparent'}
@@ -254,6 +301,11 @@ export default function Susu() {
                       required
                     />
                   </div>
+                  {customerBalance !== null && formType === 'WITHDRAWAL' && (
+                    <p style={{ fontSize: '0.75rem', color: '#059669', marginTop: '0.5rem', fontWeight: 600 }}>
+                        Current Balance: {fmtCurrency(customerBalance)}
+                    </p>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -282,11 +334,11 @@ export default function Susu() {
                 </button>
                 <button 
                   type="submit" 
-                  className="btn btn-primary" 
+                  className={formType === 'DEPOSIT' ? 'btn btn-primary' : 'btn btn-gold'} 
                   style={{ flex: 2 }}
-                  disabled={submitting}
+                  disabled={submitting || (formType === 'WITHDRAWAL' && customerBalance !== null && parseFloat(formData.amount) > customerBalance)}
                 >
-                  {submitting ? 'Processing...' : 'Complete Deposit'}
+                  {submitting ? 'Processing...' : formType === 'DEPOSIT' ? 'Complete Deposit' : 'Confirm Withdrawal'}
                 </button>
               </div>
             </form>
@@ -297,7 +349,7 @@ export default function Susu() {
       {/* Table Section */}
       <div className="card">
         <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <h2 style={{ fontWeight: 800, fontSize: '0.9375rem', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recent Deposits</h2>
+          <h2 style={{ fontWeight: 800, fontSize: '0.9375rem', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recent Activity</h2>
           <div className="search-wrapper" style={{ minWidth: '240px' }}>
             <Search size={16} className="search-icon" />
             <input 
@@ -315,8 +367,9 @@ export default function Susu() {
             <thead>
               <tr>
                 <th>Customer</th>
+                <th>Type</th>
                 <th>Amount</th>
-                <th>Collected At</th>
+                <th>Date</th>
                 <th>Officer</th>
                 <th>Notes</th>
               </tr>
@@ -333,37 +386,48 @@ export default function Susu() {
                   </td>
                 </tr>
               ) : (
-                filtered.map(c => (
-                  <tr key={c.id}>
+                filtered.map(t => (
+                  <tr key={t.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
                         <div style={{
                           width: 32, height: 32, borderRadius: '50%',
-                          background: 'linear-gradient(135deg, #0d9488, #0f766e)',
+                          background: t.type === 'DEPOSIT' ? 'linear-gradient(135deg, #0d9488, #0f766e)' : 'linear-gradient(135deg, #d97706, #b45309)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           color: 'white', fontWeight: 700, fontSize: '0.75rem'
                         }}>
-                          {c.customer?.firstName?.charAt(0)}
+                          {t.customer?.firstName?.charAt(0)}
                         </div>
                         <div>
-                          <p style={{ fontWeight: 700, fontSize: '0.875rem' }}>{c.customer?.firstName} {c.customer?.lastName}</p>
-                          <p style={{ fontSize: '0.75rem', color: '#64748b' }}>{c.customer?.phone}</p>
+                          <p style={{ fontWeight: 700, fontSize: '0.875rem' }}>{t.customer?.firstName} {t.customer?.lastName}</p>
+                          <p style={{ fontSize: '0.75rem', color: '#64748b' }}>{t.customer?.phone}</p>
                         </div>
                       </div>
                     </td>
                     <td>
-                      <span style={{ fontWeight: 800, color: '#0d9488' }}>{fmtCurrency(c.amount)}</span>
+                        <span style={{ 
+                            fontSize: '0.625rem', fontWeight: 900, padding: '2px 6px', borderRadius: '4px',
+                            background: t.type === 'DEPOSIT' ? '#d1fae5' : '#fef3c7',
+                            color: t.type === 'DEPOSIT' ? '#065f46' : '#92400e'
+                        }}>
+                            {t.type}
+                        </span>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 800, color: t.type === 'DEPOSIT' ? '#0d9488' : '#dc2626' }}>
+                        {t.type === 'DEPOSIT' ? '+' : '-'}{fmtCurrency(t.amount)}
+                      </span>
                     </td>
                     <td style={{ color: '#475569', fontSize: '0.8125rem' }}>
-                      {fmtDate(c.collectedAt)}
+                      {fmtDate(t.date)}
                     </td>
                     <td>
                       <span style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: '#f1f5f9', borderRadius: 4, fontWeight: 600 }}>
-                        {c.officer?.name}
+                        {t.officer?.name}
                       </span>
                     </td>
                     <td style={{ fontSize: '0.8125rem', color: '#64748b' }}>
-                      {c.note || '—'}
+                      {t.note || '—'}
                     </td>
                   </tr>
                 ))

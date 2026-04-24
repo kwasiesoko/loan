@@ -92,8 +92,8 @@ export default function Dashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
         <StatCard icon={CreditCard} label="Total Disbursed" value={fmtCurrency(metrics?.totalDisbursed)} color="#1e40af" bg="#dbeafe" />
         <StatCard icon={PiggyBank} label="Active Portfolio" value={fmtCurrency(metrics?.outstandingBalance)} color="#d97706" bg="#fef3c7" />
-        <StatCard icon={Wallet} label="Total Susu Savings" value={fmtCurrency(metrics?.totalSusu)} color="#0d9488" bg="#f0fdfa" />
-        <StatCard icon={ShieldCheck} label="Collection Efficiency" value={`${collectionRate}%`} color="#059669" bg="#d1fae5" />
+        <StatCard icon={Wallet} label="Net Susu Savings" value={fmtCurrency(metrics?.totalSusu)} color="#0d9488" bg="#f0fdfa" />
+        <StatCard icon={History} label="Withdrawals Today" value={fmtCurrency(metrics?.todaySusuWithdrawals)} color="#dc2626" bg="#fef2f2" />
       </div>
 
       <div style={{ marginBottom: '2rem' }}>
@@ -246,11 +246,21 @@ export default function Dashboard() {
 
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <span style={{ fontSize: '0.8125rem', color: '#64748b', fontWeight: 500 }}>Actual Recovered</span>
-                    <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#d97706' }}>{fmtCurrency(metrics?.totalCollected)}</span>
+                    <span style={{ fontSize: '0.8125rem', color: '#64748b', fontWeight: 500 }}>Susu Deposits</span>
+                    <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#059669' }}>{fmtCurrency(metrics?.totalSusuDeposits)}</span>
                 </div>
                 <div style={{ background: '#f1f5f9', height: 8, borderRadius: 4 }}>
-                   <div style={{ background: '#f59e0b', width: `${Math.min(100, metrics?.totalExpectedReturn ? (metrics?.totalCollected / metrics?.totalExpectedReturn) * 100 : 0)}%`, height: '100%', borderRadius: 4, transition: 'width 1s ease' }} />
+                   <div style={{ background: '#0d9488', width: '100%', height: '100%', borderRadius: 4 }} />
+                </div>
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '0.8125rem', color: '#64748b', fontWeight: 500 }}>Susu Withdrawals</span>
+                    <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#dc2626' }}>{fmtCurrency(metrics?.totalSusuWithdrawals)}</span>
+                </div>
+                <div style={{ background: '#f1f5f9', height: 8, borderRadius: 4 }}>
+                   <div style={{ background: '#dc2626', width: `${metrics?.totalSusuDeposits ? (metrics?.totalSusuWithdrawals / metrics?.totalSusuDeposits) * 100 : 0}%`, height: '100%', borderRadius: 4 }} />
                 </div>
               </div>
             </div>

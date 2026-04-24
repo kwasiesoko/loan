@@ -51,8 +51,11 @@ export const dashboardApi = {
 
 export const susuApi = {
   getContributions: () => api.get('/susu/contributions'),
+  getWithdrawals: () => api.get('/susu/withdrawals'),
   getCustomerContributions: (customerId) => api.get(`/susu/customer/${customerId}`),
   createDeposit: (data) => api.post('/susu/deposit', data),
+  createWithdrawal: (data) => api.post('/susu/withdraw', data),
+  getBalance: (customerId) => api.get(`/susu/balance/${customerId}`),
 };
 
 export default api;

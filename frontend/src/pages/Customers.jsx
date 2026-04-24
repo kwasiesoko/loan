@@ -4,6 +4,23 @@ import { customersApi } from '../services/api';
 import { fmtDate } from '../utils/format';
 import { UserPlus, Search, User, Phone, Mail, Eye, ChevronRight } from 'lucide-react';
 
+function KYCImageThumbnail({ path, initials }) {
+  const [url, setUrl] = useState(null);
+
+  useEffect(() => {
+    if (!path) return;
+    const filename = path.split('/').pop();
+    customersApi.getKycBlob(filename)
+      .then(res => setUrl(URL.createObjectURL(res.data)))
+      .catch(() => {});
+    
+    return () => url && URL.revokeObjectURL(url);
+  }, [path]);
+
+  if (url) return <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
+  return initials;
+}
+
 export default function Customers() {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
@@ -96,10 +113,10 @@ export default function Customers() {
                           width: 40, height: 40, borderRadius: 12,
                           background: 'linear-gradient(135deg, #0d9488, #0f766e)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: 'white', fontWeight: 800, fontSize: '0.9375rem', flexShrink: 0,
-                          boxShadow: '0 4px 10px rgba(13, 148, 136, 0.2)'
+                          boxShadow: '0 4px 10px rgba(13, 148, 136, 0.2)',
+                          overflow: 'hidden'
                         }}>
-                          {c.firstName.charAt(0).toUpperCase()}
+                          <KYCImageThumbnail path={c.photo} initials={c.firstName.charAt(0).toUpperCase()} />
                         </div>
                         <div>
                           <p style={{ fontWeight: 700, color: '#0f172a' }}>{c.firstName} {c.lastName}</p>
@@ -155,10 +172,10 @@ export default function Customers() {
                   <div style={{
                     width: 48, height: 48, borderRadius: 14,
                     background: 'linear-gradient(135deg, #0d9488, #0f766e)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'white', fontWeight: 800, fontSize: '1.125rem', flexShrink: 0
+                    color: 'white', fontWeight: 800, fontSize: '1.125rem', flexShrink: 0,
+                    overflow: 'hidden'
                   }}>
-                    {c.firstName.charAt(0).toUpperCase()}
+                    <KYCImageThumbnail path={c.photo} initials={c.firstName.charAt(0).toUpperCase()} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontWeight: 700, color: '#0f172a', fontSize: '1rem', marginBottom: '0.125rem' }}>{c.firstName} {c.lastName}</p>
