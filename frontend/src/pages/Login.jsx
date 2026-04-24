@@ -252,7 +252,21 @@ export default function Login() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="login-password" className="form-label">Password</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                  <label htmlFor="login-password" className="form-label">Password</label>
+                  {isLogin && (
+                    <button 
+                      type="button" 
+                      onClick={() => navigate('/forgot-password')}
+                      style={{ 
+                        background: 'none', border: 'none', color: '#0d9488', 
+                        fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', padding: 0 
+                      }}
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
                 <div style={{ position: 'relative' }}>
                   <input
                     id="login-password" name="password" 
