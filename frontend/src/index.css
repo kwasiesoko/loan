@@ -203,7 +203,7 @@ body {
 .data-table th { background: var(--bg-table-header); padding: 1rem; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
 .data-table td { padding: 1.125rem 1rem; border-bottom: 1px solid var(--border-muted); font-size: 0.875rem; transition: background 0.1s; color: var(--text-main); }
 .data-table tr:last-child td { border-bottom: none; }
-.data-table tr:hover td { background: var(--border-muted); cursor: pointer; }
+.data-table tr:hover td { background: var(--border-muted); }
 
 /* Alerts */
 .alert {

@@ -1,9 +1,13 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SmsService } from '../sms/sms.service';
 
 @Injectable()
 export class LoansService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private smsService: SmsService
+  ) {}
 
   async createLoan(officerId: string, data: any) {
     const { customerId, amount, interestRate, durationMonths, interestModel = 'FLAT' } = data;
@@ -12,23 +16,16 @@ export class LoansService {
     let monthlyPayment = 0;
 
     if (interestModel === 'FLAT') {
-      // Calculate Flat-Rate Interest (using total rate for the duration)
       const totalInterest = (amount * interestRate) / 100;
       totalRepayable = amount + totalInterest;
       monthlyPayment = totalRepayable / durationMonths;
     } else {
-      // Calculate Reducing-Balance (Amortization)
-      // r = monthly interest rate
       const r = (interestRate / 100); 
       const n = durationMonths;
-      
-      // Standard EMI formula: E = P * r * (1+r)^n / ((1+r)^n - 1)
-      // If we assume the interestRate passed is the MONTHLY rate (common in microfinance)
       monthlyPayment = (amount * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
       totalRepayable = monthlyPayment * n;
     }
 
-    // Create loan
     const loan = await this.prisma.loan.create({
       data: {
         customerId,
@@ -40,12 +37,12 @@ export class LoansService {
         monthlyPayment,
         totalRepayable,
       },
+      include: { customer: true }
     });
 
-    // Generate monthly installments
+    // Generate installments
     const installments: any[] = [];
     let currentDate = new Date();
-    
     for (let i = 1; i <= durationMonths; i++) {
         currentDate.setMonth(currentDate.getMonth() + 1);
         installments.push({
@@ -54,10 +51,24 @@ export class LoansService {
             amount: monthlyPayment,
         });
     }
+    await this.prisma.installment.createMany({ data: installments });
 
-    await this.prisma.installment.createMany({
-        data: installments,
-    });
+    // Send SMS Alert
+    try {
+      const message = `Hello ${loan.customer.firstName}, your loan of GHS ${amount} has been disbursed successfully. Monthly installment: GHS ${monthlyPayment.toFixed(2)}. Thank you for choosing Real & Fast.`;
+      await this.smsService.sendSms(loan.customer.phone, message);
+      
+      await this.prisma.notification.create({
+        data: {
+          customerId: loan.customerId,
+          type: 'SMS',
+          message: message,
+          status: 'SENT'
+        }
+      });
+    } catch (e) {
+      console.error('Failed to send loan SMS:', e.message);
+    }
 
     return loan;
   }
@@ -120,7 +131,10 @@ export class LoansService {
   async createRepayment(loanId: string, amount: number, note?: string) {
       const loan = await this.prisma.loan.findUnique({
           where: { id: loanId },
-          include: { installments: { where: { paid: false }, orderBy: { dueDate: 'asc' } } }
+          include: { 
+            customer: true,
+            installments: { where: { paid: false }, orderBy: { dueDate: 'asc' } } 
+          }
       });
 
       if (!loan) throw new BadRequestException('Loan not found');
@@ -158,16 +172,36 @@ export class LoansService {
       }
 
       // Check if loan is completed
-      const totalPaid = await this.prisma.repayment.aggregate({
+      const totalPaidAgg = await this.prisma.repayment.aggregate({
           where: { loanId },
           _sum: { amount: true }
       });
 
-      if (totalPaid._sum.amount && totalPaid._sum.amount >= loan.totalRepayable) {
+      const totalPaid = totalPaidAgg._sum.amount || 0;
+      const outstanding = Math.max(0, loan.totalRepayable - totalPaid);
+
+      if (totalPaid >= loan.totalRepayable) {
           await this.prisma.loan.update({
               where: { id: loanId },
               data: { status: 'COMPLETED' }
           });
+      }
+
+      // Send SMS Alert
+      try {
+        const message = `Payment Received: GHS ${amount} has been credited to your loan account. Remaining balance: GHS ${outstanding.toFixed(2)}. Thank you for your payment.`;
+        await this.smsService.sendSms(loan.customer.phone, message);
+        
+        await this.prisma.notification.create({
+          data: {
+            customerId: loan.customerId,
+            type: 'SMS',
+            message: message,
+            status: 'SENT'
+          }
+        });
+      } catch (e) {
+        console.error('Failed to send repayment SMS:', e.message);
       }
 
       return repayment;

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { customersApi, loansApi } from '../services/api';
-import { ArrowLeft, Phone, Mail, IdCard, CreditCard, Plus } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, IdCard, CreditCard, Plus, Edit, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const fmt = (v) => `GHS ${(v || 0).toLocaleString('en-GH', { minimumFractionDigits: 2 })}`;
 const statusColors = { ACTIVE: 'badge-active', COMPLETED: 'badge-completed', DEFAULTED: 'badge-defaulted', CANCELLED: 'badge-cancelled' };
@@ -61,15 +62,59 @@ function KYCImage({ path, label }) {
 export default function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [editForm, setEditForm] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    email: '',
+    ghanaCardNumber: ''
+  });
 
-  useEffect(() => {
+  const fetchCustomer = () => {
+    setLoading(true);
     customersApi.getOne(id)
-      .then(r => setCustomer(r.data))
+      .then(r => {
+        setCustomer(r.data);
+        setEditForm({
+          firstName: r.data.firstName,
+          lastName: r.data.lastName,
+          phone: r.data.phone,
+          email: r.data.email || '',
+          ghanaCardNumber: r.data.ghanaCardNumber || ''
+        });
+      })
       .catch(() => navigate('/customers'))
       .finally(() => setLoading(false));
-  }, [id]);
+  };
+
+  useEffect(() => {
+    fetchCustomer();
+    if (location.state?.openEdit) {
+      setShowEditModal(true);
+      // Clear state after reading it
+      window.history.replaceState({}, document.title);
+    }
+  }, [id, location.state]);
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setIsUpdating(true);
+    try {
+      await customersApi.update(id, editForm);
+      toast.success('Customer updated successfully');
+      setShowEditModal(false);
+      fetchCustomer();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update customer');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   if (loading) return (
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
@@ -78,6 +123,90 @@ export default function CustomerDetail() {
   );
 
   if (!customer) return null;
+
+  if (showEditModal) {
+    return (
+      <div className="animate-fade-in" style={{ maxWidth: 640, margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+          <button onClick={() => setShowEditModal(false)} className="btn btn-outline btn-sm" style={{ padding: '0.5rem', borderRadius: 8 }}>
+            <ArrowLeft size={18} />
+          </button>
+          <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>Edit Customer Info</h1>
+        </div>
+
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-group">
+                <label className="form-label">First Name</label>
+                <input 
+                  className="form-input"
+                  value={editForm.firstName}
+                  onChange={e => setEditForm({ ...editForm, firstName: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Last Name</label>
+                <input 
+                  className="form-input"
+                  value={editForm.lastName}
+                  onChange={e => setEditForm({ ...editForm, lastName: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Phone Number</label>
+              <input 
+                className="form-input"
+                value={editForm.phone}
+                onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Email Address</label>
+              <input 
+                className="form-input"
+                type="email"
+                value={editForm.email}
+                onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Ghana Card Number</label>
+              <input 
+                className="form-input"
+                value={editForm.ghanaCardNumber}
+                onChange={e => setEditForm({ ...editForm, ghanaCardNumber: e.target.value })}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+              <button 
+                type="button" 
+                className="btn btn-outline btn-full" 
+                onClick={() => setShowEditModal(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                className="btn btn-primary btn-full"
+                disabled={isUpdating}
+              >
+                {isUpdating ? 'Saving Changes...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in" style={{ maxWidth: 640, margin: '0 auto' }}>
@@ -106,8 +235,20 @@ export default function CustomerDetail() {
                customer.firstName.charAt(0).toUpperCase()
             )}
           </div>
-          <div>
-            <h2 style={{ color: 'white', fontSize: '1.125rem', fontWeight: 800 }}>{customer.firstName} {customer.lastName}</h2>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h2 style={{ color: 'white', fontSize: '1.25rem', fontWeight: 800 }}>{customer.firstName} {customer.lastName}</h2>
+                <button 
+                    onClick={() => setShowEditModal(true)}
+                    className="btn btn-sm"
+                    style={{ 
+                        background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', 
+                        color: 'white', gap: '0.375rem'
+                    }}
+                >
+                    <Edit size={14} /> Edit Profile
+                </button>
+            </div>
             <div style={{ display: 'flex', gap: '1rem', marginTop: '0.375rem', flexWrap: 'wrap' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#94a3b8', fontSize: '0.8125rem' }}>
                 <Phone size={12} /> {customer.phone}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { customersApi } from '../services/api';
 import { fmtDate } from '../utils/format';
-import { UserPlus, Search, User, Phone, Mail, Eye, ChevronRight } from 'lucide-react';
+import { UserPlus, Search, User, Phone, Mail, Eye, ChevronRight, Edit } from 'lucide-react';
 
 function KYCImageThumbnail({ path, initials }) {
   const [url, setUrl] = useState(null);
@@ -106,7 +106,7 @@ export default function Customers() {
               </thead>
               <tbody>
                 {filtered.map(c => (
-                  <tr key={c.id} onClick={() => navigate(`/customers/${c.id}`)}>
+                  <tr key={c.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
                         <div style={{
@@ -140,9 +140,21 @@ export default function Customers() {
                       {fmtDate(c.createdAt)}
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <Link to={`/customers/${c.id}`} className="btn btn-outline btn-sm" onClick={e => e.stopPropagation()}>
-                        <Eye size={14} /> View Profile
-                      </Link>
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        <Link to={`/customers/${c.id}`} className="btn btn-outline btn-sm" onClick={e => e.stopPropagation()}>
+                          <Eye size={14} /> View
+                        </Link>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/customers/${c.id}`, { state: { openEdit: true } });
+                          }} 
+                          className="btn btn-outline btn-sm"
+                          style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                        >
+                          <Edit size={14} /> Edit
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -167,27 +179,40 @@ export default function Customers() {
           {/* Mobile Card View */}
           <div className="mobile-list md:hidden">
             {filtered.map(c => (
-              <Link key={c.id} to={`/customers/${c.id}`} style={{ textDecoration: 'none' }}>
-                <div className="card" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{
-                    width: 48, height: 48, borderRadius: 14,
-                    background: 'linear-gradient(135deg, #0d9488, #0f766e)',
-                    color: 'white', fontWeight: 800, fontSize: '1.125rem', flexShrink: 0,
-                    overflow: 'hidden'
-                  }}>
-                    <KYCImageThumbnail path={c.photo} initials={c.firstName.charAt(0).toUpperCase()} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontWeight: 700, color: '#0f172a', fontSize: '1rem', marginBottom: '0.125rem' }}>{c.firstName} {c.lastName}</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <span style={{ color: '#64748b', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <Phone size={12} /> {c.phone}
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronRight size={18} color="#94a3b8" style={{ flexShrink: 0 }} />
+              <div key={c.id} className="card" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 14,
+                  background: 'linear-gradient(135deg, #0d9488, #0f766e)',
+                  color: 'white', fontWeight: 800, fontSize: '1.125rem', flexShrink: 0,
+                  overflow: 'hidden'
+                }}>
+                  <KYCImageThumbnail path={c.photo} initials={c.firstName.charAt(0).toUpperCase()} />
                 </div>
-              </Link>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontWeight: 700, color: '#0f172a', fontSize: '1rem', marginBottom: '0.125rem' }}>{c.firstName} {c.lastName}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span style={{ color: '#64748b', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <Phone size={12} /> {c.phone}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate(`/customers/${c.id}`, { state: { openEdit: true } });
+                    }}
+                    className="btn btn-outline btn-sm"
+                    style={{ padding: '6px', minWidth: 'auto', borderRadius: '8px' }}
+                  >
+                    <Edit size={14} />
+                  </button>
+                  <Link to={`/customers/${c.id}`} style={{ color: '#94a3b8', display: 'flex' }}>
+                    <ChevronRight size={18} />
+                  </Link>
+                </div>
+              </div>
             ))}
           </div>
         </>

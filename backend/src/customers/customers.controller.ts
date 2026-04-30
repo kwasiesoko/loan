@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards, UseInterceptors, UploadedFiles, Res, StreamableFile, Req } from '@nestjs/common';
+import { Controller, Post, Patch, Get, Body, Param, UseGuards, UseInterceptors, UploadedFiles, Res, StreamableFile, Req } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { CustomersService } from './customers.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -82,6 +82,11 @@ export class CustomersController {
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.customersService.findOne(id);
+  }
+
+  @Patch(':id')
+  async update(@Param('id') id: string, @Body() data: any) {
+    return this.customersService.update(id, data);
   }
 
   @Get('kyc/view/:filename')

@@ -9,9 +9,10 @@ import { LoansModule } from './loans/loans.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SusuModule } from './susu/susu.module';
+import { SmsModule } from './sms/sms.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, CustomersModule, LoansModule, DashboardModule, NotificationsModule, SusuModule, ScheduleModule.forRoot()],
+  imports: [PrismaModule, AuthModule, CustomersModule, LoansModule, DashboardModule, NotificationsModule, SusuModule, SmsModule, ScheduleModule.forRoot()],
   controllers: [AppController],
   providers: [AppService],
 })
