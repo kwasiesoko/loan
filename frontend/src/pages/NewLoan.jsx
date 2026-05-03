@@ -8,12 +8,49 @@ import toast from 'react-hot-toast';
 export default function NewLoan() {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
-  const [form, setForm] = useState({ customerId: '', amount: '', interestRate: '', durationMonths: '', interestModel: 'FLAT' });
+  const [form, setForm] = useState({ 
+    customerId: '', 
+    amount: '', 
+    interestRate: '10', 
+    durationMonths: '1', 
+    interestModel: 'FLAT',
+    repaymentFrequency: 'MONTHLY'
+  });
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState(null);
   const [search, setSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
 
+  const loanProducts = [
+    { 
+      id: 'monthly', 
+      name: 'Monthly Plan', 
+      description: '10% Interest / Month', 
+      rate: 10, 
+      frequency: 'MONTHLY', 
+      model: 'FLAT',
+      duration: 1
+    },
+    { 
+      id: 'quarterly', 
+      name: 'Quarterly Plan', 
+      description: '20% Interest / Quarter', 
+      rate: 20, 
+      frequency: 'WEEKLY', 
+      model: 'REDUCING',
+      duration: 3
+    }
+  ];
+
+  const selectProduct = (p) => {
+    setForm(prev => ({
+      ...prev,
+      interestRate: String(p.rate),
+      interestModel: p.model,
+      repaymentFrequency: p.frequency,
+      durationMonths: String(p.duration)
+    }));
+  };
   const filteredCustomers = customers.filter(c => 
     `${c.firstName} ${c.lastName} ${c.phone}`.toLowerCase().includes(search.toLowerCase())
   );
@@ -24,47 +61,58 @@ export default function NewLoan() {
     setShowDropdown(false);
   };
 
-
-
   useEffect(() => {
     customersApi.getAll()
       .then(r => setCustomers(r.data))
       .catch(console.error);
   }, []);
 
-  const calculatePreview = (amount, rate, months, model) => {
+  useEffect(() => {
+    const prev = calculatePreview(
+      parseFloat(form.amount),
+      parseFloat(form.interestRate),
+      parseInt(form.durationMonths),
+      form.interestModel,
+      form.repaymentFrequency
+    );
+    setPreview(prev);
+  }, [form.amount, form.interestRate, form.durationMonths, form.interestModel, form.repaymentFrequency]);
+  const calculatePreview = (amount, rate, months, model, frequency) => {
     if (amount > 0 && rate >= 0 && months > 0) {
-      let totalInterest, totalRepayable, monthlyPayment;
+      let totalInterest, totalRepayable, installmentAmount;
+      const n = (frequency === 'WEEKLY') ? months * 4 : months;
+      
+      // Determine periodic rate
+      // If frequency is WEEKLY and rate is 'per quarter' (20%), periodic rate is rate/12
+      // If frequency is MONTHLY and rate is 'per month' (10%), periodic rate is rate/100
+      let r;
+      if (frequency === 'WEEKLY') {
+          // Assuming 20% is for 3 months (12 weeks)
+          r = (rate / 100) / 12;
+      } else {
+          r = rate / 100;
+      }
 
       if (model === 'FLAT') {
-        totalInterest = (amount * rate) / 100;
+        // For flat, we usually multiply rate by duration
+        // If 10% per month, and duration is 'months'
+        totalInterest = amount * (rate / 100) * months;
         totalRepayable = amount + totalInterest;
-        monthlyPayment = totalRepayable / months;
+        installmentAmount = totalRepayable / n;
       } else {
         // Reducing Balance (Standard EMI)
-        const r = rate / 100;
-        const n = months;
-        monthlyPayment = (amount * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-        totalRepayable = monthlyPayment * n;
+        installmentAmount = (amount * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+        totalRepayable = installmentAmount * n;
         totalInterest = totalRepayable - amount;
       }
-      return { totalInterest, totalRepayable, monthlyPayment };
+      return { totalInterest, totalRepayable, installmentAmount, frequency };
     }
     return null;
   };
 
   const handleChange = e => {
     const { name, value } = e.target;
-    const updated = { ...form, [name]: value };
-    setForm(updated);
-
-    const prev = calculatePreview(
-      parseFloat(updated.amount),
-      parseFloat(updated.interestRate),
-      parseInt(updated.durationMonths),
-      updated.interestModel
-    );
-    setPreview(prev);
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async e => {
@@ -82,6 +130,7 @@ export default function NewLoan() {
         interestRate: parseFloat(form.interestRate),
         durationMonths: parseInt(form.durationMonths),
         interestModel: form.interestModel,
+        repaymentFrequency: form.repaymentFrequency
       });
       toast.success('Loan application approved and schedule generated!');
       navigate('/loans');
@@ -107,13 +156,54 @@ export default function NewLoan() {
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        {/* Loan Configuration */}
+        {/* Loan Product Selection */}
+        <div className="card" style={{ padding: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)', marginBottom: '1.5rem' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Calculator size={20} color="var(--primary)" />
+            </div>
+            <h3 style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>Select Loan Product</h3>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            {loanProducts.map(p => (
+              <div 
+                key={p.id}
+                onClick={() => selectProduct(p)}
+                style={{
+                  padding: '1.25rem',
+                  borderRadius: 16,
+                  border: '2px solid',
+                  borderColor: (form.interestRate === String(p.rate) && form.repaymentFrequency === p.frequency) ? 'var(--primary)' : 'var(--border)',
+                  background: (form.interestRate === String(p.rate) && form.repaymentFrequency === p.frequency) ? 'var(--primary-light)' : 'transparent',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                {(form.interestRate === String(p.rate) && form.repaymentFrequency === p.frequency) && (
+                  <div style={{ position: 'absolute', top: 10, right: 10 }}>
+                    <CheckCircle size={16} color="var(--primary)" />
+                  </div>
+                )}
+                <p style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '0.25rem' }}>{p.name}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.description}</p>
+                <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.65rem', background: 'rgba(0,0,0,0.05)', padding: '2px 8px', borderRadius: 999, fontWeight: 700 }}>{p.frequency}</span>
+                  <span style={{ fontSize: '0.65rem', background: 'rgba(0,0,0,0.05)', padding: '2px 8px', borderRadius: 999, fontWeight: 700 }}>{p.model}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="card" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)', marginBottom: '1.5rem' }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <CreditCard size={20} color="var(--primary)" />
             </div>
-            <h3 style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>Loan Configuration</h3>
+            <h3 style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>Loan Details</h3>
           </div>
 
           <div className="form-group" style={{ marginBottom: '1.25rem' }}>
@@ -245,7 +335,7 @@ export default function NewLoan() {
               {[
                 { label: 'Total Interest', val: fmtCurrency(preview.totalInterest), color: 'var(--text-main)' },
                 { label: 'Total Repayable', val: fmtCurrency(preview.totalRepayable), color: 'var(--text-main)' },
-                { label: 'Monthly Payment', val: fmtCurrency(preview.monthlyPayment), color: 'var(--success)' },
+                { label: `${preview.frequency === 'WEEKLY' ? 'Weekly' : 'Monthly'} Payment`, val: fmtCurrency(preview.installmentAmount), color: 'var(--success)' },
               ].map(({ label, val, color }) => (
                 <div key={label} style={{ background: 'var(--bg-card)', padding: '1rem', borderRadius: 16, textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
                   <p style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.375rem', letterSpacing: '0.05em' }}>{label}</p>
@@ -256,7 +346,7 @@ export default function NewLoan() {
 
             <div style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'flex-start', gap: '0.75rem', color: 'var(--text-main)', fontSize: '0.8125rem', background: 'rgba(255,255,255,0.1)', padding: '0.75rem', borderRadius: 12 }}>
               <Info size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-              <p>This is a <strong>{form.interestModel.toLowerCase()}</strong> interest model. Upon clicking "Disburse Loan", a fixed schedule of {form.durationMonths} monthly installments will be automatically generated.</p>
+              <p>This is a <strong>{form.interestModel.toLowerCase()}</strong> interest model. Upon clicking "Disburse Loan", a fixed schedule of {form.repaymentFrequency === 'WEEKLY' ? parseInt(form.durationMonths) * 4 : form.durationMonths} {form.repaymentFrequency.toLowerCase()} installments will be automatically generated.</p>
             </div>
           </div>
         )}

@@ -21,8 +21,25 @@ export class SusuService {
       include: { customer: true }
     });
 
-    // Optional: SMS for contribution as well? User didn't explicitly ask for it but it's good practice.
-    // I'll skip it for now to follow strictly.
+    // Get current balance
+    const balance = await this.getCustomerBalance(customerId);
+
+    // Send SMS Alert
+    try {
+      const message = `Susu Deposit Alert: GHS ${amount} has been credited to your savings. New balance: GHS ${balance.toFixed(2)}. Thank you for saving with us.`;
+      await this.smsService.sendSms(contribution.customer.phone, message);
+      
+      await this.prisma.notification.create({
+        data: {
+          customerId: contribution.customerId,
+          type: 'SMS',
+          message: message,
+          status: 'SENT'
+        }
+      });
+    } catch (e) {
+      console.error('Failed to send contribution SMS:', e.message);
+    }
 
     return contribution;
   }

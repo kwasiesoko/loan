@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SmsService } from '../sms/sms.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class LoansService {
@@ -10,20 +11,38 @@ export class LoansService {
   ) {}
 
   async createLoan(officerId: string, data: any) {
-    const { customerId, amount, interestRate, durationMonths, interestModel = 'FLAT' } = data;
+    const { 
+      customerId, 
+      amount, 
+      interestRate, 
+      durationMonths, 
+      interestModel = 'FLAT', 
+      repaymentFrequency = 'MONTHLY' 
+    } = data;
 
     let totalRepayable = 0;
-    let monthlyPayment = 0;
+    let installmentAmount = 0;
+    let numberOfInstallments = durationMonths;
+
+    if (repaymentFrequency === 'WEEKLY') {
+      numberOfInstallments = durationMonths * 4;
+    }
 
     if (interestModel === 'FLAT') {
-      const totalInterest = (amount * interestRate) / 100;
+      const periodicRate = (interestRate === 20) ? (interestRate / 100) / 3 : (interestRate / 100);
+      const totalInterest = amount * periodicRate * durationMonths;
       totalRepayable = amount + totalInterest;
-      monthlyPayment = totalRepayable / durationMonths;
+      installmentAmount = totalRepayable / numberOfInstallments;
     } else {
-      const r = (interestRate / 100); 
-      const n = durationMonths;
-      monthlyPayment = (amount * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-      totalRepayable = monthlyPayment * n;
+      let r;
+      if (repaymentFrequency === 'WEEKLY') {
+          r = (interestRate / 100) / 12;
+      } else {
+          r = interestRate / 100;
+      }
+      const n = numberOfInstallments;
+      installmentAmount = (amount * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+      totalRepayable = installmentAmount * n;
     }
 
     const loan = await this.prisma.loan.create({
@@ -34,37 +53,35 @@ export class LoansService {
         interestRate,
         interestModel,
         durationMonths,
-        monthlyPayment,
+        repaymentFrequency,
+        monthlyPayment: repaymentFrequency === 'MONTHLY' ? installmentAmount : installmentAmount * 4,
         totalRepayable,
       },
       include: { customer: true }
     });
 
-    // Generate installments
     const installments: any[] = [];
     let currentDate = new Date();
-    for (let i = 1; i <= durationMonths; i++) {
-        currentDate.setMonth(currentDate.getMonth() + 1);
+    for (let i = 1; i <= numberOfInstallments; i++) {
+        if (repaymentFrequency === 'WEEKLY') {
+          currentDate.setDate(currentDate.getDate() + 7);
+        } else {
+          currentDate.setMonth(currentDate.getMonth() + 1);
+        }
         installments.push({
             loanId: loan.id,
             dueDate: new Date(currentDate),
-            amount: monthlyPayment,
+            amount: installmentAmount,
         });
     }
     await this.prisma.installment.createMany({ data: installments });
 
-    // Send SMS Alert
     try {
-      const message = `Hello ${loan.customer.firstName}, your loan of GHS ${amount} has been disbursed successfully. Monthly installment: GHS ${monthlyPayment.toFixed(2)}. Thank you for choosing Real & Fast.`;
+      const freqText = repaymentFrequency === 'WEEKLY' ? 'Weekly' : 'Monthly';
+      const message = `Hello ${loan.customer.firstName}, your loan of GHS ${amount} has been disbursed successfully. ${freqText} installment: GHS ${installmentAmount.toFixed(2)}. Thank you for choosing Real & Fast.`;
       await this.smsService.sendSms(loan.customer.phone, message);
-      
       await this.prisma.notification.create({
-        data: {
-          customerId: loan.customerId,
-          type: 'SMS',
-          message: message,
-          status: 'SENT'
-        }
+        data: { customerId: loan.customerId, type: 'SMS', message: message, status: 'SENT' }
       });
     } catch (e) {
       console.error('Failed to send loan SMS:', e.message);
@@ -73,34 +90,66 @@ export class LoansService {
     return loan;
   }
 
-  // Penalty Logic: Run via Cron
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async applyPenalties() {
     const now = new Date();
+    
+    // 1. Overdue Flat Penalties
     const overdueInstallments = await this.prisma.installment.findMany({
-      where: {
-        paid: false,
-        dueDate: { lt: now },
-        // Only apply if not already penalized today (simple check)
-      },
+      where: { paid: false, dueDate: { lt: now } },
       include: { loan: true }
     });
 
-    const PENALTY_FLAT_AMOUNT = 5; // GHS 5 penalty per overdue day/week/incident
-
+    const PENALTY_FLAT_AMOUNT = 5; 
     for (const inst of overdueInstallments) {
-      // Example: Apply penalty once if it's 3 days overdue
       const diffTime = Math.abs(now.getTime() - inst.dueDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
       if (diffDays >= 3 && inst.penaltyAmount === 0) {
         await this.prisma.installment.update({
           where: { id: inst.id },
-          data: { 
-            penaltyAmount: PENALTY_FLAT_AMOUNT,
-            amount: inst.amount + PENALTY_FLAT_AMOUNT 
-          }
+          data: { penaltyAmount: PENALTY_FLAT_AMOUNT, amount: inst.amount + PENALTY_FLAT_AMOUNT }
         });
       }
+    }
+
+    // 2. Default Penalties (13.5% on Principal)
+    const DEFAULT_THRESHOLD_DAYS = 14; 
+    const DEFAULT_PENALTY_RATE = 0.135; 
+
+    const potentialDefaults = await this.prisma.loan.findMany({
+        where: {
+            status: 'ACTIVE',
+            installments: { some: { paid: false, dueDate: { lt: new Date(now.getTime() - DEFAULT_THRESHOLD_DAYS * 24 * 60 * 60 * 1000) } } }
+        },
+        include: { installments: { where: { paid: false }, orderBy: { dueDate: 'asc' } }, customer: true }
+    });
+
+    for (const loan of potentialDefaults) {
+        const penalty = loan.amount * DEFAULT_PENALTY_RATE;
+        const newTotalRepayable = loan.totalRepayable + penalty;
+        
+        await this.prisma.loan.update({
+            where: { id: loan.id },
+            data: { status: 'DEFAULTED', totalRepayable: newTotalRepayable }
+        });
+
+        const firstUnpaid = loan.installments[0];
+        if (firstUnpaid) {
+            await this.prisma.installment.update({
+                where: { id: firstUnpaid.id },
+                data: { penaltyAmount: firstUnpaid.penaltyAmount + penalty, amount: firstUnpaid.amount + penalty }
+            });
+        }
+
+        try {
+          const message = `URGENT: Your loan has been marked as DEFAULTED. A penalty of GHS ${penalty.toFixed(2)} (13.5% of principal) has been added. New total: GHS ${newTotalRepayable.toFixed(2)}.`;
+          await this.smsService.sendSms(loan.customer.phone, message);
+          await this.prisma.notification.create({
+            data: { customerId: loan.customerId, type: 'SMS', message: message, status: 'SENT' }
+          });
+        } catch (e) {
+          console.error('Failed to send default SMS:', e.message);
+        }
     }
   }
 
