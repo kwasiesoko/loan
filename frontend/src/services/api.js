@@ -39,6 +39,7 @@ export const customersApi = {
   }),
   update: (id, data) => api.patch(`/customers/${id}`, data),
   getKycBlob: (filename) => api.get(`/customers/kyc/view/${filename}`, { responseType: 'blob' }),
+  bulkClear: (password) => api.post('/customers/bulk-clear', { password }),
 };
 
 export const loansApi = {

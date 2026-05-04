@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import {
-  LayoutDashboard, Users, CreditCard, PiggyBank, LogOut, Menu, X, Bell, Wallet, Download, Moon, Sun
+  LayoutDashboard, Users, CreditCard, PiggyBank, LogOut, Menu, X, Bell, Wallet, Download, Moon, Sun, Settings
 } from 'lucide-react';
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/susu', icon: Wallet, label: 'Susu' },
   { to: '/loans', icon: CreditCard, label: 'Loans' },
   { to: '/repayments', icon: PiggyBank, label: 'Repayments' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 function Sidebar({ open, onClose }) {

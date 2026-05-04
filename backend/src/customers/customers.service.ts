@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SmsService } from '../sms/sms.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class CustomersService {
@@ -46,15 +47,68 @@ export class CustomersService {
 
   async findAll() {
     return this.prisma.customer.findMany({
+      where: { isDeleted: false },
       orderBy: { createdAt: 'desc' }
     });
   }
 
   async findAllByOfficer(officerId: string) {
     return this.prisma.customer.findMany({
-      where: { officerId },
+      where: { officerId, isDeleted: false },
       orderBy: { createdAt: 'desc' }
     });
+  }
+
+  async softDeleteAllByOfficer(officerId: string, password?: string) {
+    if (!password) {
+      throw new BadRequestException('Password is required for this action');
+    }
+
+    const user = await this.prisma.loanOfficer.findUnique({
+      where: { id: officerId }
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      throw new UnauthorizedException('Invalid password. Data clearing aborted.');
+    }
+
+    return this.prisma.$transaction([
+      // Delete Customers
+      this.prisma.customer.updateMany({
+        where: { officerId, isDeleted: false },
+        data: { isDeleted: true }
+      }),
+      // Delete Loans
+      this.prisma.loan.updateMany({
+        where: { officerId, isDeleted: false },
+        data: { isDeleted: true }
+      }),
+      // Delete Installments (since they are tied to loans)
+      this.prisma.installment.updateMany({
+        where: { loan: { officerId }, isDeleted: false },
+        data: { isDeleted: true }
+      }),
+      // Delete Repayments
+      this.prisma.repayment.updateMany({
+        where: { loan: { officerId }, isDeleted: false },
+        data: { isDeleted: true }
+      }),
+      // Delete Susu Contributions
+      this.prisma.susuContribution.updateMany({
+        where: { officerId, isDeleted: false },
+        data: { isDeleted: true }
+      }),
+      // Delete Susu Withdrawals
+      this.prisma.susuWithdrawal.updateMany({
+        where: { officerId, isDeleted: false },
+        data: { isDeleted: true }
+      })
+    ]);
   }
 
   async findOne(id: string) {

@@ -16,6 +16,7 @@ import Repayments from './pages/Repayments';
 import Susu from './pages/Susu';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import Settings from './pages/Settings';
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
@@ -44,6 +45,7 @@ function AppRoutes() {
       <Route path="/loans/:id" element={<ProtectedRoute><LoanDetail /></ProtectedRoute>} />
       <Route path="/repayments" element={<ProtectedRoute><Repayments /></ProtectedRoute>} />
       <Route path="/susu" element={<ProtectedRoute><Susu /></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

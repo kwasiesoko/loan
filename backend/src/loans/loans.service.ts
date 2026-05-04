@@ -162,17 +162,18 @@ export class LoansService {
 
   async getAllLoans() {
       return this.prisma.loan.findMany({
+          where: { isDeleted: false },
           include: { customer: true, officer: true, repayments: true, installments: true }
       });
   }
 
   async getLoanDetails(id: string) {
       return this.prisma.loan.findUnique({
-          where: { id },
+          where: { id, isDeleted: false },
           include: {
               customer: true,
-              installments: true,
-              repayments: true
+              installments: { where: { isDeleted: false } },
+              repayments: { where: { isDeleted: false } }
           }
       });
   }

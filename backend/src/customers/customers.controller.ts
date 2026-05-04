@@ -79,6 +79,11 @@ export class CustomersController {
     return this.customersService.findAllByOfficer(req.user.id);
   }
 
+  @Post('bulk-clear')
+  async clearAll(@Req() req: any, @Body('password') password: string) {
+    return this.customersService.softDeleteAllByOfficer(req.user.id, password);
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.customersService.findOne(id);

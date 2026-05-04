@@ -88,11 +88,11 @@ export class SusuService {
 
   async getCustomerBalance(customerId: string) {
     const contributions = await this.prisma.susuContribution.aggregate({
-      where: { customerId },
+      where: { customerId, isDeleted: false },
       _sum: { amount: true },
     });
     const withdrawals = await this.prisma.susuWithdrawal.aggregate({
-      where: { customerId, status: 'APPROVED' },
+      where: { customerId, status: 'APPROVED', isDeleted: false },
       _sum: { amount: true },
     });
 
@@ -101,6 +101,7 @@ export class SusuService {
 
   async getWithdrawals() {
     return this.prisma.susuWithdrawal.findMany({
+      where: { isDeleted: false },
       include: {
         customer: true,
         officer: { select: { id: true, name: true, email: true } },
@@ -111,7 +112,7 @@ export class SusuService {
 
   async getWithdrawalsByOfficer(officerId: string) {
     return this.prisma.susuWithdrawal.findMany({
-      where: { officerId },
+      where: { officerId, isDeleted: false },
       include: {
         customer: true,
         officer: { select: { id: true, name: true, email: true } },
@@ -122,6 +123,7 @@ export class SusuService {
 
   async getContributions() {
     return this.prisma.susuContribution.findMany({
+      where: { isDeleted: false },
       include: {
         customer: true,
         officer: {
@@ -140,7 +142,7 @@ export class SusuService {
 
   async getContributionsByOfficer(officerId: string) {
     return this.prisma.susuContribution.findMany({
-      where: { officerId },
+      where: { officerId, isDeleted: false },
       include: {
         customer: true,
         officer: {
