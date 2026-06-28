@@ -29,10 +29,9 @@ export default function Dashboard() {
     </div>
   );
 
-  const totalPAR = (metrics?.parStats?.par1to30 || 0) + 
-                   (metrics?.parStats?.par31to60 || 0) + 
-                   (metrics?.parStats?.par61to90 || 0) + 
-                   (metrics?.parStats?.par90Plus || 0);
+  const totalPAR = metrics?.parStats?.totalPar || 0;
+  const overduePAR = metrics?.parStats?.overdue || 0;
+  const criticalPAR = metrics?.parStats?.critical || 0;
 
   const collectionRate = metrics?.collectionEfficiency?.toFixed(1) || 0;
 
@@ -97,26 +96,26 @@ export default function Dashboard() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.8125rem' }}>
                 <span style={{ color: '#64748b' }}>Overdue (1-30 Days)</span>
-                <span style={{ fontWeight: 700 }}>{fmtCurrency(metrics?.parStats?.par1to30)}</span>
+                <span style={{ fontWeight: 700 }}>{fmtCurrency(overduePAR)}</span>
               </div>
               <div style={{ height: 4, background: '#f1f5f9', borderRadius: 2 }}>
-                <div style={{ width: `${totalPAR > 0 ? (metrics?.parStats?.par1to30 / totalPAR) * 100 : 0}%`, height: '100%', background: '#fbbf24', borderRadius: 2 }} />
+                <div style={{ width: `${totalPAR > 0 ? (overduePAR / totalPAR) * 100 : 0}%`, height: '100%', background: '#fbbf24', borderRadius: 2 }} />
               </div>
             </div>
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.8125rem' }}>
                 <span style={{ color: '#64748b' }}>Critical (31+ Days)</span>
-                <span style={{ fontWeight: 700 }}>{fmtCurrency((metrics?.parStats?.par31to60 || 0) + (metrics?.parStats?.par90Plus || 0))}</span>
+                <span style={{ fontWeight: 700 }}>{fmtCurrency(criticalPAR)}</span>
               </div>
               <div style={{ height: 4, background: '#f1f5f9', borderRadius: 2 }}>
-                <div style={{ width: `${totalPAR > 0 ? ((totalPAR - metrics?.parStats?.par1to30) / totalPAR) * 100 : 0}%`, height: '100%', background: '#dc2626', borderRadius: 2 }} />
+                <div style={{ width: `${totalPAR > 0 ? (criticalPAR / totalPAR) * 100 : 0}%`, height: '100%', background: '#dc2626', borderRadius: 2 }} />
               </div>
             </div>
           </div>
 
-          <Link to="/repayments" className="btn btn-outline btn-sm btn-full" style={{ marginTop: '2rem' }}>
-            View Overdue List
+          <Link to="/par" className="btn btn-outline btn-sm btn-full" style={{ marginTop: '2rem' }}>
+            View PAR Report
           </Link>
         </div>
 

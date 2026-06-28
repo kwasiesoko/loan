@@ -175,10 +175,11 @@ export class DashboardService {
 
   private async calculatePARStats(officerId?: string) {
     const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     const getOverdueAmount = async (daysMin: number, daysMax?: number) => {
-        const dateMax = new Date();
-        dateMax.setDate(now.getDate() - daysMin);
+        const dateMax = new Date(today);
+        dateMax.setDate(today.getDate() - daysMin + 1);
         
         const where: any = {
             paid: false,
@@ -186,8 +187,8 @@ export class DashboardService {
         };
 
         if (daysMax) {
-            const dateMin = new Date();
-            dateMin.setDate(now.getDate() - daysMax);
+            const dateMin = new Date(today);
+            dateMin.setDate(today.getDate() - daysMax);
             where.dueDate.gte = dateMin;
         }
 
@@ -202,11 +203,13 @@ export class DashboardService {
         return agg._sum.amount || 0;
     };
 
+    const overdue = await getOverdueAmount(1, 30);
+    const critical = await getOverdueAmount(31);
+
     return {
-        par1to30: await getOverdueAmount(1, 30),
-        par31to60: await getOverdueAmount(31, 60),
-        par61to90: await getOverdueAmount(61, 90),
-        par90Plus: await getOverdueAmount(91),
+        overdue,
+        critical,
+        totalPar: overdue + critical,
     };
   }
 

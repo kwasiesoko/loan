@@ -13,6 +13,7 @@ import Loans from './pages/Loans';
 import NewLoan from './pages/NewLoan';
 import LoanDetail from './pages/LoanDetail';
 import Repayments from './pages/Repayments';
+import PortfolioAtRisk from './pages/PortfolioAtRisk';
 import Susu from './pages/Susu';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -44,6 +45,7 @@ function AppRoutes() {
       <Route path="/loans/new" element={<ProtectedRoute><NewLoan /></ProtectedRoute>} />
       <Route path="/loans/:id" element={<ProtectedRoute><LoanDetail /></ProtectedRoute>} />
       <Route path="/repayments" element={<ProtectedRoute><Repayments /></ProtectedRoute>} />
+      <Route path="/par" element={<ProtectedRoute><PortfolioAtRisk /></ProtectedRoute>} />
       <Route path="/susu" element={<ProtectedRoute><Susu /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -84,16 +84,6 @@ export class CustomersController {
     return this.customersService.softDeleteAllByOfficer(req.user.id, password);
   }
 
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.customersService.findOne(id);
-  }
-
-  @Patch(':id')
-  async update(@Param('id') id: string, @Body() data: any) {
-    return this.customersService.update(id, data);
-  }
-
   @Get('kyc/view/:filename')
   async serveKycFile(@Param('filename') filename: string, @Res({ passthrough: true }) res: Response) {
     const filePath = join(process.cwd(), 'uploads/kyc', filename);
@@ -109,5 +99,15 @@ export class CustomersController {
     });
     
     return new StreamableFile(file);
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.customersService.findOne(id);
+  }
+
+  @Patch(':id')
+  async update(@Param('id') id: string, @Body() data: any) {
+    return this.customersService.update(id, data);
   }
 }

@@ -47,10 +47,15 @@ export const loansApi = {
   getAll: () => api.get('/loans'),
   getOne: (id) => api.get(`/loans/${id}`),
   addRepayment: (id, data) => api.post(`/loans/${id}/repayments`, data),
+  getPar: () => api.get('/loans/par'),
 };
 
 export const dashboardApi = {
   getMetrics: () => api.get('/dashboard'),
+};
+
+export const notificationsApi = {
+  getAll: (limit = 20) => api.get(`/notifications?limit=${limit}`),
 };
 
 export const susuApi = {

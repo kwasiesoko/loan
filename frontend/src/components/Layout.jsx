@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import {
-  LayoutDashboard, Users, CreditCard, PiggyBank, LogOut, Menu, X, Bell, Wallet, Download, Moon, Sun, Settings
+  LayoutDashboard, Users, CreditCard, PiggyBank, LogOut, Menu, X, Bell, Wallet, Download, Moon, Sun, Settings, ShieldAlert
 } from 'lucide-react';
+import { notificationsApi } from '../services/api';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -12,6 +13,7 @@ const navItems = [
   { to: '/susu', icon: Wallet, label: 'Susu' },
   { to: '/loans', icon: CreditCard, label: 'Loans' },
   { to: '/repayments', icon: PiggyBank, label: 'Repayments' },
+  { to: '/par', icon: ShieldAlert, label: 'PAR Report' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
@@ -112,11 +114,25 @@ function BottomNav() {
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notifUnread, setNotifUnread] = useState(0);
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+
+  const loadNotifications = useCallback(() => {
+    notificationsApi.getAll(20)
+      .then(r => {
+        setNotifications(r.data || []);
+        setNotifUnread((r.data || []).length > 0 ? Math.min((r.data || []).length, 9) : 0);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { loadNotifications(); }, [loadNotifications]);
 
   const handleExport = () => {
     // Simple fetch and download for CSV
@@ -205,13 +221,53 @@ export default function Layout({ children }) {
               className="btn btn-outline btn-sm"
               style={{ padding: '0.5rem', borderRadius: 10, position: 'relative' }}
               aria-label="Notifications"
+              onClick={() => { setNotifOpen(v => !v); setNotifUnread(0); }}
             >
               <Bell size={18} aria-hidden="true" />
-              <span style={{
-                position: 'absolute', top: 4, right: 4, width: 8, height: 8,
-                background: '#ef4444', borderRadius: '50%', border: '2px solid var(--bg-card)'
-              }} />
+              {notifUnread > 0 && (
+                <span style={{
+                  position: 'absolute', top: 4, right: 4, width: 8, height: 8,
+                  background: '#ef4444', borderRadius: '50%', border: '2px solid var(--bg-card)'
+                }} />
+              )}
             </button>
+
+            {/* Notifications Dropdown */}
+            {notifOpen && (
+              <div style={{
+                position: 'absolute', top: '64px', right: '1.5rem', zIndex: 50,
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                borderRadius: 16, boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+                width: 360, maxHeight: 420, overflowY: 'auto',
+              }}>
+                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <p style={{ fontWeight: 800, fontSize: '0.9375rem', color: 'var(--text-main)' }}>Recent Notifications</p>
+                  <button onClick={() => setNotifOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                    <X size={16} />
+                  </button>
+                </div>
+                {notifications.length === 0 ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                    No notifications yet
+                  </div>
+                ) : notifications.map(n => (
+                  <div key={n.id} style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', gap: '0.75rem' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Bell size={14} color="#1e40af" />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.125rem' }}>
+                        {n.customer?.firstName} {n.customer?.lastName}
+                      </p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{n.message}</p>
+                      <p style={{ fontSize: '0.6875rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+                        {new Date(n.sentAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div style={{ width: 1, height: 24, background: 'var(--border)', margin: '0 0.25rem' }} />
             

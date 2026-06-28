@@ -26,6 +26,14 @@ export class LoansController {
       return this.loansService.testGetLoansByOfficer(req.user.id);
   }
 
+  @Get('par')
+  async getParReport(@Req() req: any) {
+      if (req.user.role === 'ADMIN') {
+          return this.loansService.getParReport();
+      }
+      return this.loansService.getParReport(req.user.id);
+  }
+
   @Get(':id')
   async getLoanDetails(@Param('id') id: string) {
       return this.loansService.getLoanDetails(id);
