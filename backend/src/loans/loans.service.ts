@@ -77,8 +77,24 @@ export class LoansService {
     await this.prisma.installment.createMany({ data: installments });
 
     try {
-      const freqText = repaymentFrequency === 'WEEKLY' ? 'Weekly' : 'Monthly';
-      const message = `Hello ${loan.customer.firstName}, your loan of GHS ${amount} has been disbursed successfully. ${freqText} installment: GHS ${installmentAmount.toFixed(2)}. Thank you for choosing Real & Fast.`;
+      const freqText = repaymentFrequency === 'WEEKLY' ? 'weekly' : 'monthly';
+      const freqLabel = repaymentFrequency === 'WEEKLY' ? 'Weekly' : 'Monthly';
+      const modelText = interestModel === 'FLAT' ? 'Flat Rate' : 'Reducing Balance';
+      const firstDueDate = installments[0]?.dueDate
+        ? new Date(installments[0].dueDate).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' })
+        : 'N/A';
+
+      const message =
+        `Dear ${loan.customer.firstName}, your loan has been approved and disbursed. Here is your payment plan:\n` +
+        `Amount: GHS ${amount.toFixed(2)}\n` +
+        `Interest: ${interestRate}% (${modelText})\n` +
+        `Duration: ${durationMonths} month(s)\n` +
+        `Installments: ${numberOfInstallments} ${freqText} payments\n` +
+        `${freqLabel} Payment: GHS ${installmentAmount.toFixed(2)}\n` +
+        `Total Repayable: GHS ${totalRepayable.toFixed(2)}\n` +
+        `First Due Date: ${firstDueDate}\n` +
+        `Kindly ensure payments are made on time to avoid penalties. REAL AND FAST POINT ENT.`;
+
       await this.smsService.sendSms(loan.customer.phone, message);
       await this.prisma.notification.create({
         data: { customerId: loan.customerId, type: 'SMS', message: message, status: 'SENT' }
@@ -133,7 +149,8 @@ export class LoansService {
       const diffTime = Math.abs(today.getTime() - inst.dueDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
-      if (diffDays === 3) {
+      // Apply 1% penalty once if installment is 3 or more days overdue and penalty has not yet been applied
+      if (diffDays >= 3 && inst.penaltyAmount === 0) {
         const penaltyAmount = inst.amount * OVERDUE_PENALTY_RATE;
         const newAmount = inst.amount + penaltyAmount;
 
@@ -177,10 +194,11 @@ export class LoansService {
 
     for (const loan of criticalLoans) {
         const firstUnpaid = loan.installments[0];
+        if (!firstUnpaid) continue;
         const diffTime = Math.abs(today.getTime() - firstUnpaid.dueDate.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-        if (diffDays === CRITICAL_THRESHOLD_DAYS) {
+        if (diffDays >= CRITICAL_THRESHOLD_DAYS && loan.status === 'ACTIVE') {
             const totalPaid = loan.repayments.reduce((sum: number, r: any) => sum + r.amount, 0);
             const outstandingBalance = Math.max(0, loan.totalRepayable - totalPaid);
             const penalty = outstandingBalance * DEFAULT_PENALTY_RATE;

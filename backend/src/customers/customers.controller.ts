@@ -107,7 +107,40 @@ export class CustomersController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() data: any) {
-    return this.customersService.update(id, data);
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'ghanaCardFront', maxCount: 1 },
+        { name: 'ghanaCardBack', maxCount: 1 },
+        { name: 'photo', maxCount: 1 },
+      ],
+      { storage }
+    )
+  )
+  async update(
+    @Param('id') id: string,
+    @Body() body: any,
+    @UploadedFiles() files: {
+      ghanaCardFront?: Express.Multer.File[],
+      ghanaCardBack?: Express.Multer.File[],
+      photo?: Express.Multer.File[]
+    }
+  ) {
+    try {
+      const data = { ...body };
+      if (files?.ghanaCardFront?.length) {
+        data.ghanaCardFront = files.ghanaCardFront[0].path;
+      }
+      if (files?.ghanaCardBack?.length) {
+        data.ghanaCardBack = files.ghanaCardBack[0].path;
+      }
+      if (files?.photo?.length) {
+        data.photo = files.photo[0].path;
+      }
+      return await this.customersService.update(id, data);
+    } catch (error) {
+      console.error('Customer update error:', error);
+      throw error;
+    }
   }
 }

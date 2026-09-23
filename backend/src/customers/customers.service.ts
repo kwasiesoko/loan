@@ -128,6 +128,9 @@ export class CustomersService {
     if (data.phone) updateData.phone = data.phone;
     if (data.email !== undefined) updateData.email = data.email;
     if (data.ghanaCardNumber !== undefined) updateData.ghanaCardNumber = data.ghanaCardNumber;
+    if (data.ghanaCardFront) updateData.ghanaCardFront = data.ghanaCardFront;
+    if (data.ghanaCardBack) updateData.ghanaCardBack = data.ghanaCardBack;
+    if (data.photo) updateData.photo = data.photo;
 
     return this.prisma.customer.update({
       where: { id },

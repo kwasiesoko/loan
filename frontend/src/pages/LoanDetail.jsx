@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { loansApi } from '../services/api';
 import { fmtCurrency, fmtDate } from '../utils/format';
+import { downloadLoanPdf } from '../utils/loanPdf';
 import { 
   ArrowLeft, CheckCircle, Clock, AlertTriangle, 
-  DollarSign, PiggyBank, Loader, History, Calendar, Info
+  DollarSign, PiggyBank, Loader, History, Calendar, Info, FileDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -94,6 +95,19 @@ export default function LoanDetail() {
           </h1>
         </div>
         <span className={`badge ${statusColors[loan.status] || 'badge-cancelled'}`} style={{ fontSize: '0.875rem', padding: '0.375rem 1rem' }}>{loan.status}</span>
+        <button
+          id="download-loan-pdf-btn"
+          onClick={() => {
+            try { downloadLoanPdf(loan); }
+            catch (err) { toast.error('Could not generate PDF'); console.error(err); }
+          }}
+          className="btn btn-primary btn-sm"
+          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap' }}
+          title="Download loan statement as PDF"
+        >
+          <FileDown size={15} />
+          Download PDF
+        </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }} className="md:grid-cols-3">

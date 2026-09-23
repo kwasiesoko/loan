@@ -37,7 +37,9 @@ export const customersApi = {
   create: (formData) => api.post('/customers', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
-  update: (id, data) => api.patch(`/customers/${id}`, data),
+  update: (id, data) => api.patch(`/customers/${id}`, data, {
+    headers: (typeof FormData !== 'undefined' && data instanceof FormData) ? { 'Content-Type': 'multipart/form-data' } : undefined
+  }),
   getKycBlob: (filename) => api.get(`/customers/kyc/view/${filename}`, { responseType: 'blob' }),
   bulkClear: (password) => api.post('/customers/bulk-clear', { password }),
 };
