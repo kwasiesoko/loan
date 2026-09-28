@@ -83,12 +83,9 @@ export default function NewLoan() {
       const n = (frequency === 'WEEKLY') ? months * 4 : months;
       
       // Determine periodic rate
-      // If frequency is WEEKLY and rate is 'per quarter' (20%), periodic rate is rate/12
-      // If frequency is MONTHLY and rate is 'per month' (10%), periodic rate is rate/100
       let r;
       if (frequency === 'WEEKLY') {
-          // Assuming 20% is for 3 months (12 weeks)
-          r = (rate / 100) / 12;
+          r = (rate / 100) / 4;
       } else {
           r = rate / 100;
       }

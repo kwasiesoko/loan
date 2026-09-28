@@ -151,11 +151,26 @@ export default function LoanDetail() {
           </div>
 
           {/* Record Repayment Form */}
-          {loan.status === 'ACTIVE' && (
+          {(loan.status === 'ACTIVE' || loan.status === 'DEFAULTED') && (
             <div className="card" style={{ padding: '2rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
                 <h3 style={{ fontWeight: 800, fontSize: '1.125rem', color: 'var(--text-main)' }}>Make a Repayment</h3>
+                {loan.status === 'DEFAULTED' && (
+                  <span className="badge badge-defaulted" style={{ fontSize: '0.75rem' }}>Defaulted Account</span>
+                )}
               </div>
+              
+              {loan.status === 'DEFAULTED' && (
+                <div style={{
+                  background: '#fef2f2', border: '1.5px solid #fca5a5', borderRadius: '10px',
+                  padding: '0.875rem 1rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem'
+                }}>
+                  <AlertTriangle size={20} color="#dc2626" style={{ flexShrink: 0 }} />
+                  <p style={{ fontSize: '0.8125rem', color: '#991b1b', fontWeight: 600, margin: 0 }}>
+                    <strong>Account Alert:</strong> This loan is in <strong>DEFAULT</strong> status. Recording a repayment here will credit the account and reduce the outstanding defaulted balance.
+                  </p>
+                </div>
+              )}
               
               <form onSubmit={e => { e.preventDefault(); setShowConfirm(true); }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }} className="sm:grid-cols-2">

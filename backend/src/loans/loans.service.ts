@@ -29,14 +29,14 @@ export class LoansService {
     }
 
     if (interestModel === 'FLAT') {
-      const periodicRate = (interestRate === 20) ? (interestRate / 100) / 3 : (interestRate / 100);
+      const periodicRate = interestRate / 100;
       const totalInterest = amount * periodicRate * durationMonths;
       totalRepayable = amount + totalInterest;
       installmentAmount = totalRepayable / numberOfInstallments;
     } else {
       let r;
       if (repaymentFrequency === 'WEEKLY') {
-          r = (interestRate / 100) / 12;
+          r = (interestRate / 100) / 4;
       } else {
           r = interestRate / 100;
       }
@@ -300,7 +300,7 @@ export class LoansService {
           where: { id: loanId },
           include: { 
             customer: true,
-            installments: { where: { paid: false }, orderBy: { dueDate: 'asc' } } 
+            installments: { where: { isDeleted: false }, orderBy: { dueDate: 'asc' } } 
           }
       });
 
@@ -311,43 +311,43 @@ export class LoansService {
           data: { loanId, amount, note }
       });
 
-      // Update Installments starting from the earliest unpaid
-      let remainingAmount = amount;
-      const EPSILON = 0.01; // 1 pesewa tolerance
+      // Calculate total cumulative repayments for this loan
+      const totalPaidAgg = await this.prisma.repayment.aggregate({
+          where: { loanId, isDeleted: false },
+          _sum: { amount: true }
+      });
+      const totalPaid = totalPaidAgg._sum.amount || 0;
+
+      // Update installment paid status based on cumulative repayments without destroying scheduled installment.amount
+      const EPSILON = 0.01;
+      let cumulativeDue = 0;
 
       for (const inst of loan.installments) {
-          if (remainingAmount <= 0) break;
+          cumulativeDue += inst.amount;
+          const isFullyCovered = totalPaid >= (cumulativeDue - EPSILON);
 
-          if (remainingAmount >= (inst.amount - EPSILON)) {
+          if (isFullyCovered && !inst.paid) {
               await this.prisma.installment.update({
                   where: { id: inst.id },
                   data: { 
                     paid: true, 
-                    paidAt: new Date(),
-                    amount: 0 // Fully paid
+                    paidAt: new Date()
                   }
               });
-              remainingAmount -= inst.amount;
-          } else {
-              // Partial payments on an installment
+          } else if (!isFullyCovered && inst.paid) {
               await this.prisma.installment.update({
                   where: { id: inst.id },
-                  data: { amount: Math.max(0, inst.amount - remainingAmount) }
+                  data: { 
+                    paid: false, 
+                    paidAt: null
+                  }
               });
-              remainingAmount = 0;
           }
       }
 
-      // Check if loan is completed
-      const totalPaidAgg = await this.prisma.repayment.aggregate({
-          where: { loanId },
-          _sum: { amount: true }
-      });
-
-      const totalPaid = totalPaidAgg._sum.amount || 0;
       const outstanding = Math.max(0, loan.totalRepayable - totalPaid);
 
-      if (totalPaid >= loan.totalRepayable) {
+      if (totalPaid >= (loan.totalRepayable - EPSILON)) {
           await this.prisma.loan.update({
               where: { id: loanId },
               data: { status: 'COMPLETED' }
