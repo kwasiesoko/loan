@@ -211,7 +211,7 @@ export default function LoanDetail() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Interest Rate</span>
-                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{loan.interestRate}% Flat</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{loan.interestRate}% {loan.interestModel === 'REDUCING' ? 'Reducing' : 'Flat'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Installments Paid</span>

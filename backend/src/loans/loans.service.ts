@@ -1,14 +1,98 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SmsService } from '../sms/sms.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
-export class LoansService {
+export class LoansService implements OnModuleInit {
+  private readonly logger = new Logger(LoansService.name);
+
   constructor(
     private prisma: PrismaService,
     private smsService: SmsService
   ) {}
+
+  async onModuleInit() {
+    try {
+      await this.healAllLoans();
+    } catch (err) {
+      this.logger.error(`Failed to run startup loan schedule reconciliation: ${err.message}`);
+    }
+  }
+
+  async healAllLoans() {
+    const loans = await this.prisma.loan.findMany({
+      where: { isDeleted: false },
+      select: { id: true }
+    });
+
+    for (const l of loans) {
+      await this.healAndRecalculateLoan(l.id);
+    }
+    this.logger.log(`Reconciled and healed installment schedules for ${loans.length} active/recorded loans.`);
+  }
+
+  async healAndRecalculateLoan(loanId: string) {
+    const loan = await this.prisma.loan.findUnique({
+      where: { id: loanId, isDeleted: false },
+      include: {
+        installments: { where: { isDeleted: false }, orderBy: { dueDate: 'asc' } },
+        repayments: { where: { isDeleted: false }, orderBy: { paidAt: 'asc' } }
+      }
+    });
+
+    if (!loan || !loan.installments || loan.installments.length === 0) return null;
+
+    const numInstallments = loan.installments.length;
+    const expectedBaseAmount = Number((loan.totalRepayable / numInstallments).toFixed(2));
+    const totalPaid = loan.repayments.reduce((sum: number, r: any) => sum + r.amount, 0);
+
+    const EPSILON = 0.01;
+    let cumulativeDue = 0;
+
+    for (let i = 0; i < loan.installments.length; i++) {
+      const inst = loan.installments[i];
+      
+      // If installment amount was corrupted (e.g. 0.00 from past bugs), heal it to the standard scheduled tranche
+      let correctAmount = inst.amount;
+      if (!correctAmount || correctAmount <= EPSILON) {
+        correctAmount = Number((expectedBaseAmount + (inst.penaltyAmount || 0)).toFixed(2));
+      }
+
+      cumulativeDue += correctAmount;
+      const isPaid = totalPaid >= (cumulativeDue - EPSILON);
+
+      const updateData: any = {};
+      if (Math.abs(inst.amount - correctAmount) > EPSILON) {
+        updateData.amount = correctAmount;
+      }
+      if (inst.paid !== isPaid) {
+        updateData.paid = isPaid;
+        updateData.paidAt = isPaid ? (inst.paidAt || loan.repayments[loan.repayments.length - 1]?.paidAt || new Date()) : null;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await this.prisma.installment.update({
+          where: { id: inst.id },
+          data: updateData
+        });
+      }
+    }
+
+    // Synchronize loan completion status
+    const isCompleted = totalPaid >= (loan.totalRepayable - EPSILON);
+    if (isCompleted && loan.status !== 'COMPLETED') {
+      await this.prisma.loan.update({
+        where: { id: loanId },
+        data: { status: 'COMPLETED' }
+      });
+    } else if (!isCompleted && loan.status === 'COMPLETED') {
+      await this.prisma.loan.update({
+        where: { id: loanId },
+        data: { status: 'ACTIVE' }
+      });
+    }
+  }
 
   async createLoan(officerId: string, data: any) {
     const { 
@@ -278,99 +362,76 @@ export class LoansService {
   }
 
   async getAllLoans() {
-      return this.prisma.loan.findMany({
-          where: { isDeleted: false },
-          include: { customer: true, officer: true, repayments: true, installments: true }
-      });
+    return this.prisma.loan.findMany({
+      where: { isDeleted: false },
+      include: { 
+        customer: true, 
+        officer: true, 
+        repayments: { where: { isDeleted: false }, orderBy: { paidAt: 'desc' } }, 
+        installments: { where: { isDeleted: false }, orderBy: { dueDate: 'asc' } } 
+      },
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async getLoanDetails(id: string) {
-      return this.prisma.loan.findUnique({
-          where: { id, isDeleted: false },
-          include: {
-              customer: true,
-              installments: { where: { isDeleted: false } },
-              repayments: { where: { isDeleted: false } }
-          }
-      });
+    // Ensure schedule and installment paid flags are accurately synced before returning
+    await this.healAndRecalculateLoan(id);
+
+    return this.prisma.loan.findUnique({
+      where: { id, isDeleted: false },
+      include: {
+        customer: true,
+        installments: { where: { isDeleted: false }, orderBy: { dueDate: 'asc' } },
+        repayments: { where: { isDeleted: false }, orderBy: { paidAt: 'desc' } }
+      }
+    });
   }
 
   async createRepayment(loanId: string, amount: number, note?: string) {
-      const loan = await this.prisma.loan.findUnique({
-          where: { id: loanId },
-          include: { 
-            customer: true,
-            installments: { where: { isDeleted: false }, orderBy: { dueDate: 'asc' } } 
-          }
-      });
-
-      if (!loan) throw new BadRequestException('Loan not found');
-
-      // Add Repayment Record
-      const repayment = await this.prisma.repayment.create({
-          data: { loanId, amount, note }
-      });
-
-      // Calculate total cumulative repayments for this loan
-      const totalPaidAgg = await this.prisma.repayment.aggregate({
-          where: { loanId, isDeleted: false },
-          _sum: { amount: true }
-      });
-      const totalPaid = totalPaidAgg._sum.amount || 0;
-
-      // Update installment paid status based on cumulative repayments without destroying scheduled installment.amount
-      const EPSILON = 0.01;
-      let cumulativeDue = 0;
-
-      for (const inst of loan.installments) {
-          cumulativeDue += inst.amount;
-          const isFullyCovered = totalPaid >= (cumulativeDue - EPSILON);
-
-          if (isFullyCovered && !inst.paid) {
-              await this.prisma.installment.update({
-                  where: { id: inst.id },
-                  data: { 
-                    paid: true, 
-                    paidAt: new Date()
-                  }
-              });
-          } else if (!isFullyCovered && inst.paid) {
-              await this.prisma.installment.update({
-                  where: { id: inst.id },
-                  data: { 
-                    paid: false, 
-                    paidAt: null
-                  }
-              });
-          }
+    const loan = await this.prisma.loan.findUnique({
+      where: { id: loanId, isDeleted: false },
+      include: { 
+        customer: true,
+        installments: { where: { isDeleted: false }, orderBy: { dueDate: 'asc' } } 
       }
+    });
 
-      const outstanding = Math.max(0, loan.totalRepayable - totalPaid);
+    if (!loan) throw new BadRequestException('Loan not found');
 
-      if (totalPaid >= (loan.totalRepayable - EPSILON)) {
-          await this.prisma.loan.update({
-              where: { id: loanId },
-              data: { status: 'COMPLETED' }
-          });
-      }
+    // Add Repayment Record
+    const repayment = await this.prisma.repayment.create({
+      data: { loanId, amount, note }
+    });
 
-      // Send SMS Alert
-      try {
-        const message = `Payment Received: GHS ${amount} has been credited to your loan account. Remaining balance: GHS ${outstanding.toFixed(2)}. Thank you for your payment.`;
-        await this.smsService.sendSms(loan.customer.phone, message);
-        
-        await this.prisma.notification.create({
-          data: {
-            customerId: loan.customerId,
-            type: 'SMS',
-            message: message,
-            status: 'SENT'
-          }
-        });
-      } catch (e) {
-        console.error('Failed to send repayment SMS:', e.message);
-      }
+    // Recalculate and synchronize installment statuses
+    await this.healAndRecalculateLoan(loanId);
 
-      return repayment;
+    // Calculate total cumulative repayments for this loan
+    const totalPaidAgg = await this.prisma.repayment.aggregate({
+      where: { loanId, isDeleted: false },
+      _sum: { amount: true }
+    });
+    const totalPaid = totalPaidAgg._sum.amount || 0;
+    const outstanding = Math.max(0, loan.totalRepayable - totalPaid);
+
+    // Send SMS Alert
+    try {
+      const message = `Payment Received: GHS ${amount.toFixed(2)} has been credited to your loan account. Remaining balance: GHS ${outstanding.toFixed(2)}. Thank you for your payment. REAL AND FAST POINT ENT.`;
+      await this.smsService.sendSms(loan.customer.phone, message);
+      
+      await this.prisma.notification.create({
+        data: {
+          customerId: loan.customerId,
+          type: 'SMS',
+          message: message,
+          status: 'SENT'
+        }
+      });
+    } catch (e) {
+      console.error('Failed to send repayment SMS:', e.message);
+    }
+
+    return repayment;
   }
 }
