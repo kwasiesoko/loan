@@ -4,8 +4,8 @@ import * as https from 'https';
 @Injectable()
 export class SmsService {
   private readonly logger = new Logger(SmsService.name);
-  private readonly apiKey = process.env.SMS_API_KEY || 'SlJ2dHRPVXNUblVNVGNDeHV4R2g';
-  private readonly senderId = process.env.SMS_SENDER_ID || 'meddibuddy';
+  private readonly apiKey = process.env.SMS_API_KEY || 'amFtZXMubmVnYmxlOk9OS3UzcTJ6MXZkaHo2UEI=';
+  private readonly senderId = process.env.SMS_SENDER_ID || 'realandfast';
   private readonly apiUrl = process.env.SMS_API_URL || 'https://sms.arkesel.com/sms/api';
 
   async sendSms(to: string, message: string) {
